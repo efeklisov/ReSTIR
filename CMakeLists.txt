@@ -47,6 +47,10 @@ add_executable (neo
     src/hdvw/descriptorlayout.cpp
     src/hdvw/descriptorpool.cpp
     src/hdvw/descriptorset.cpp
+    src/engine/blas.cpp
+    src/engine/tlas.cpp
+    src/engine/sbt.cpp
+    src/engine/model.cpp
     src/external/vk_mem_alloc.cpp
     src/external/stb_image.cpp
 )

@@ -59,12 +59,16 @@ namespace hd {
             vk::Pipeline _pipeline;
             vk::Device _device;
 
+            vk::DeviceSize _groupCount;
+
         public:
             static Pipeline conjure(RaytraycingPipelineCreateInfo ci) {
                 return std::static_pointer_cast<Pipeline_t>(std::make_shared<RaytraycingPipeline_t>(ci));
             }
 
             RaytraycingPipeline_t(RaytraycingPipelineCreateInfo ci);
+
+            vk::DeviceSize getGroupCount();
 
             vk::Pipeline raw();
 

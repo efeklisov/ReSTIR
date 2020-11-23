@@ -38,6 +38,7 @@
 #include <engine/tlas.hpp>
 #include <engine/sbt.hpp>
 #include <engine/model.hpp>
+#include <engine/camera.hpp>
 
 #define MAX_FRAMES_IN_FLIGHT 3
 
@@ -48,8 +49,9 @@ struct MVP {
 };
 
 struct UniformData {
-		glm::mat4 viewInverse;
-		glm::mat4 projInverse;
+    glm::mat4 viewInverse;
+    glm::mat4 projInverse;
+    uint32_t frameIndex;
 };
 
 class App {
@@ -69,13 +71,25 @@ class App {
         std::vector<hd::Semaphore> renderFinished;
         std::vector<hd::Fence> inFlightFences;
 
-        hd::Model cube;
+        hd::Model scene;
 
-        hd::DataBuffer<hd::Vertex> vertexBuffer;
-        hd::DataBuffer<uint32_t> indexBuffer;
+        /* hd::Camera camera; */
 
-        hd::BLAS blas;
-        hd::TLAS tlas;
+        struct vram {
+            using vram_vertices = hd::DataBuffer<hd::Vertex>;
+            using vram_indices = hd::DataBuffer<uint32_t>;
+            using vram_texture = hd::Texture;
+            using vram_material = hd::DataBuffer<hd::Material>;
+
+            std::vector<vram_vertices> vertices;
+            std::vector<vram_indices> indices;
+            std::vector<vram_texture> diffuse;
+            std::vector<vram_material> materials;
+
+            std::vector<hd::BLAS> blases;
+            hd::TLAS tlas;
+        } vram;
+
         hd::DescriptorLayout rayLayout;
         hd::PipelineLayout rayPipeLayout;
         hd::Pipeline rayPipeline;
@@ -89,7 +103,12 @@ class App {
                     .cursorVisible = true,
                     .windowUser = this,
                     .framebufferSizeCallback = framebufferResizeCallback,
+                    /* .cursorPosCallback = mousePositionCallback, */
                     });
+
+            /* camera = hd::Camera_t::conjure({ */
+            /*         .window = window, */
+            /*         }); */
 
             auto instanceExtensions = window->getRequiredExtensions();
             instanceExtensions.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
@@ -117,6 +136,9 @@ class App {
 
             vk::PhysicalDeviceVulkan12Features feats12{};
             feats12.bufferDeviceAddress = true;
+            feats12.runtimeDescriptorArray = true;
+            feats12.shaderSampledImageArrayNonUniformIndexing = true;
+            feats12.shaderStorageBufferArrayNonUniformIndexing = true;
             feats12.pNext = &ray_feats;
 
             vk::PhysicalDeviceFeatures2 all_feats{};
@@ -168,8 +190,8 @@ class App {
                 inFlightFences[iter] = hd::Fence_t::conjure({.device = device});
             }
 
-            cube = hd::Model_t::conjure({
-                    "models/cube.obj",
+            scene = hd::Model_t::conjure({
+                    "models/scene.obj",
                     [&](const char *filename){
                         return hd::Texture_t::conjure({
                                 filename,
@@ -180,32 +202,13 @@ class App {
                                 }); },
                     });
 
-            vertexBuffer = hd::DataBuffer_t<hd::Vertex>::conjure({
-                    .commandPool = graphicsPool,
-                    .queue = graphicsQueue,
-                    .allocator = allocator,
-                    .device = device,
-                    .data = cube->meshes[0].vertices,
-                    .usage = vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eStorageBuffer,
-                    });
+            vram.vertices.reserve(scene->meshes.size());
+            vram.indices.reserve(scene->meshes.size());
+            vram.diffuse.reserve(scene->meshes.size());
+            vram.blases.reserve(scene->meshes.size());
 
-            indexBuffer = hd::DataBuffer_t<uint32_t>::conjure({
-                    .commandPool = graphicsPool,
-                    .queue = graphicsQueue,
-                    .allocator = allocator,
-                    .device = device,
-                    .data = cube->meshes[0].indices,
-                    .usage = vk::BufferUsageFlagBits::eIndexBuffer | vk::BufferUsageFlagBits::eStorageBuffer,
-                    });
-
-            blas = hd::BLAS_t::conjure({
-                    vertexBuffer,
-                    indexBuffer,
-                    graphicsPool,
-                    graphicsQueue,
-                    device,
-                    allocator,
-                    });
+            std::vector<vk::AccelerationStructureInstanceKHR> instances;
+            instances.reserve(scene->meshes.size());
 
             const std::array<std::array<float, 4>, 3> matrix {
                 1.0f, 0.0f, 0.0f, 0.0f,
@@ -215,26 +218,68 @@ class App {
 
             vk::TransformMatrixKHR vk_matrix(matrix);
 
-            vk::AccelerationStructureInstanceKHR inst{};
-            inst.transform = vk_matrix;
-            inst.instanceCustomIndex = 0;
-            inst.mask = 0xFF;
-            inst.instanceShaderBindingTableRecordOffset = 0;
-            inst.setFlags(vk::GeometryInstanceFlagBitsKHR::eTriangleFacingCullDisable);
-            inst.accelerationStructureReference = blas->address();
+            vk::AccelerationStructureInstanceKHR instanceInfo{};
+            instanceInfo.transform = vk_matrix;
+            instanceInfo.mask = 0xFF;
+            instanceInfo.instanceShaderBindingTableRecordOffset = 0; // HitGroupId
+            instanceInfo.setFlags(vk::GeometryInstanceFlagBitsKHR::eTriangleFacingCullDisable);
+
+            for (uint32_t iter = 0; iter < scene->meshes.size(); iter++) {
+                vram.vertices.push_back(hd::DataBuffer_t<hd::Vertex>::conjure({
+                        .commandPool = graphicsPool,
+                        .queue = graphicsQueue,
+                        .allocator = allocator,
+                        .device = device,
+                        .data = scene->meshes[iter].vertices,
+                        .usage = vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eStorageBuffer,
+                        }));
+
+                vram.indices.push_back(hd::DataBuffer_t<uint32_t>::conjure({
+                        .commandPool = graphicsPool,
+                        .queue = graphicsQueue,
+                        .allocator = allocator,
+                        .device = device,
+                        .data = scene->meshes[iter].indices,
+                        .usage = vk::BufferUsageFlagBits::eIndexBuffer | vk::BufferUsageFlagBits::eStorageBuffer,
+                        }));
+
+                vram.diffuse.push_back(scene->meshes[iter].diffuse[0]);
+
+                vram.materials.push_back(hd::DataBuffer_t<hd::Material>::conjure({
+                        .commandPool = graphicsPool,
+                        .queue = graphicsQueue,
+                        .allocator = allocator,
+                        .device = device,
+                        .data = {scene->meshes[iter].material},
+                        .usage = vk::BufferUsageFlagBits::eStorageBuffer,
+                        }));
+
+                vram.blases.push_back(hd::BLAS_t::conjure({
+                        vram.vertices[iter],
+                        vram.indices[iter],
+                        graphicsPool,
+                        graphicsQueue,
+                        device,
+                        allocator,
+                        }));
+
+                instanceInfo.instanceCustomIndex = iter; // InstanceId
+                instanceInfo.accelerationStructureReference = vram.blases[iter]->address();
+                instances.push_back(instanceInfo);
+            }
 
             auto instbuffer = hd::DataBuffer_t<vk::AccelerationStructureInstanceKHR>::conjure({
                     .commandPool = graphicsPool,
                     .queue = graphicsQueue,
                     .allocator = allocator,
                     .device = device,
-                    .data = {inst},
+                    .data = instances,
+                    .usage = vk::BufferUsageFlagBits::eRayTracingKHR,
                     .memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU,
                     });
 
-            tlas = hd::TLAS_t::conjure({
+            vram.tlas = hd::TLAS_t::conjure({
                     instbuffer,
-                    blas,
                     graphicsPool,
                     graphicsQueue,
                     device,
@@ -247,7 +292,7 @@ class App {
             aStructLayoutBinding.binding = 0;
             aStructLayoutBinding.descriptorType = vk::DescriptorType::eAccelerationStructureKHR;
             aStructLayoutBinding.descriptorCount = 1;
-            aStructLayoutBinding.stageFlags = vk::ShaderStageFlagBits::eRaygenKHR;
+            aStructLayoutBinding.stageFlags = vk::ShaderStageFlagBits::eRaygenKHR | vk::ShaderStageFlagBits::eClosestHitKHR;
 
             vk::DescriptorSetLayoutBinding resImageLayoutBinding{};
             resImageLayoutBinding.binding = 1;
@@ -264,24 +309,30 @@ class App {
             vk::DescriptorSetLayoutBinding textureBinding{};
             textureBinding.binding = 3;
             textureBinding.descriptorType = vk::DescriptorType::eCombinedImageSampler;
-            textureBinding.descriptorCount = 1;
+            textureBinding.descriptorCount = vram.diffuse.size();
             textureBinding.stageFlags = vk::ShaderStageFlagBits::eClosestHitKHR;
 
             vk::DescriptorSetLayoutBinding vertexBinding{};
             vertexBinding.binding = 4;
             vertexBinding.descriptorType = vk::DescriptorType::eStorageBuffer;
-            vertexBinding.descriptorCount = 1;
+            vertexBinding.descriptorCount = vram.vertices.size();
             vertexBinding.stageFlags = vk::ShaderStageFlagBits::eClosestHitKHR;
 
             vk::DescriptorSetLayoutBinding indicesBinding{};
             indicesBinding.binding = 5;
             indicesBinding.descriptorType = vk::DescriptorType::eStorageBuffer;
-            indicesBinding.descriptorCount = 1;
+            indicesBinding.descriptorCount = vram.indices.size();
             indicesBinding.stageFlags = vk::ShaderStageFlagBits::eClosestHitKHR;
+
+            vk::DescriptorSetLayoutBinding materialBinding{};
+            materialBinding.binding = 6;
+            materialBinding.descriptorType = vk::DescriptorType::eStorageBuffer;
+            materialBinding.descriptorCount = vram.materials.size();
+            materialBinding.stageFlags = vk::ShaderStageFlagBits::eClosestHitKHR;
 
             rayLayout = hd::DescriptorLayout_t::conjure({
                     .device = device,
-                    .bindings = { aStructLayoutBinding, resImageLayoutBinding, uniBufferBinding, textureBinding, vertexBinding, indicesBinding },
+                    .bindings = { aStructLayoutBinding, resImageLayoutBinding, uniBufferBinding, textureBinding, vertexBinding, indicesBinding, materialBinding },
                     });
 
             rayPipeLayout = hd::PipelineLayout_t::conjure({
@@ -298,6 +349,12 @@ class App {
             hd::Shader missShader = hd::Shader_t::conjure({
                     .device = device,
                     .filename = "shaders/miss.rmiss.spv",
+                    .stage = vk::ShaderStageFlagBits::eMissKHR,
+                    });
+
+            hd::Shader shadowShader = hd::Shader_t::conjure({
+                    .device = device,
+                    .filename = "shaders/shadow.rmiss.spv",
                     .stage = vk::ShaderStageFlagBits::eMissKHR,
                     });
 
@@ -321,25 +378,31 @@ class App {
             missGroupCI.anyHitShader = VK_SHADER_UNUSED_KHR;
             missGroupCI.intersectionShader = VK_SHADER_UNUSED_KHR;
 
+            vk::RayTracingShaderGroupCreateInfoKHR shadowGroupCI{};
+            shadowGroupCI.type = vk::RayTracingShaderGroupTypeKHR::eGeneral;
+            shadowGroupCI.generalShader = 2;
+            shadowGroupCI.closestHitShader = VK_SHADER_UNUSED_KHR;
+            shadowGroupCI.anyHitShader = VK_SHADER_UNUSED_KHR;
+            shadowGroupCI.intersectionShader = VK_SHADER_UNUSED_KHR;
+
             vk::RayTracingShaderGroupCreateInfoKHR closesthitGroupCI{};
             closesthitGroupCI.type = vk::RayTracingShaderGroupTypeKHR::eTrianglesHitGroup;
             closesthitGroupCI.generalShader = VK_SHADER_UNUSED_KHR;
-            closesthitGroupCI.closestHitShader = 2;
+            closesthitGroupCI.closestHitShader = 3;
             closesthitGroupCI.anyHitShader = VK_SHADER_UNUSED_KHR;
             closesthitGroupCI.intersectionShader = VK_SHADER_UNUSED_KHR;
 
             rayPipeline = hd::RaytraycingPipeline_t::conjure({
                     .pipelineLayout = rayPipeLayout,
                     .device = device,
-                    .shaderInfos = { raygenShader->info(), missShader->info(), closestHitShader->info() },
-                    .shaderGroups = { raygenGroupCI, missGroupCI, closesthitGroupCI },
+                    .shaderInfos = { raygenShader->info(), missShader->info(), shadowShader->info(), closestHitShader->info() },
+                    .shaderGroups = { raygenGroupCI, missGroupCI, shadowGroupCI, closesthitGroupCI },
                     });
 
             sbt = hd::SBT_t::conjure({
                     .pipeline = rayPipeline,
                     .device = device,
                     .allocator = allocator,
-                    .groupCount = 3,
                     });
         }
 
@@ -353,6 +416,8 @@ class App {
         hd::DescriptorSet rayDescriptorSet;
         std::vector<hd::CommandBuffer> rayCmdBuffers;
         std::vector<hd::Fence> inFlightImages;
+
+        uint32_t globalFrameCount = 0;
 
         void setup() {
             swapChain = hd::SwapChain_t::conjure(hd::SwapChainCreateInfo{
@@ -391,12 +456,16 @@ class App {
             const float aspect = static_cast<float>(swapChain->extent().width) / static_cast<float>(swapChain->extent().height);
 
             auto perspective = glm::perspective(glm::radians(60.0f), aspect, 0.1f, 512.0f);
-            auto translate = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -2.5f));
+            auto translate = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 1.0f, -3.5f));
+            auto rotate = glm::rotate(glm::mat4(1.0f), glm::pi<float>(), glm::vec3(0.0f, 0.0f, 1.0f));
             auto scale = glm::scale(glm::mat4(1.0f), glm::vec3(0.15f, 0.15f, 0.15f));
 
             UniformData uniData {};
             uniData.projInverse = glm::inverse(perspective * glm::mat4(1.0f));
-            uniData.viewInverse = glm::inverse(translate * scale * glm::mat4(1.0f));
+            uniData.viewInverse = glm::inverse(translate * scale * rotate * glm::mat4(1.0f));
+            /* uniData.projInverse = camera->projI; */
+            /* uniData.viewInverse = camera->viewI; */
+            uniData.frameIndex = globalFrameCount;
 
             unibuffer = hd::DataBuffer_t<UniformData>::conjure({
                     .commandPool = graphicsPool,
@@ -416,82 +485,133 @@ class App {
 
             rayDescriptorSet = rayDescriptorPool->allocate(1, rayLayout).at(0);
 
-            auto topLevelAStruct = tlas->raw();
-            vk::WriteDescriptorSetAccelerationStructureKHR aStructDI{};
-            aStructDI.setAccelerationStructures(topLevelAStruct);
+            {
+                std::vector<vk::WriteDescriptorSet> writes;
+                writes.reserve(3 + vram.vertices.size());
 
-            vk::WriteDescriptorSet aStuctWrite{};
-            aStuctWrite.pNext = &aStructDI;
-            aStuctWrite.dstSet = rayDescriptorSet->raw();
-            aStuctWrite.dstBinding = 0;
-            aStuctWrite.descriptorCount = 1;
-            aStuctWrite.descriptorType = vk::DescriptorType::eAccelerationStructureKHR;
+                auto topLevelAStruct = vram.tlas->raw();
+                vk::WriteDescriptorSetAccelerationStructureKHR aStructDI{};
+                aStructDI.setAccelerationStructures(topLevelAStruct);
 
-            vk::DescriptorImageInfo storageImageInfo{};
-            storageImageInfo.imageView = storage.view->raw();
-            storageImageInfo.imageLayout = vk::ImageLayout::eGeneral;
+                vk::WriteDescriptorSet aStuctWrite{};
+                aStuctWrite.pNext = &aStructDI;
+                aStuctWrite.dstSet = rayDescriptorSet->raw();
+                aStuctWrite.dstBinding = 0;
+                aStuctWrite.descriptorCount = 1;
+                aStuctWrite.descriptorType = vk::DescriptorType::eAccelerationStructureKHR;
 
-            vk::WriteDescriptorSet storageImageWrite{};
-            storageImageWrite.dstBinding = 1;
-            storageImageWrite.dstArrayElement = 0;
-            storageImageWrite.descriptorType = vk::DescriptorType::eStorageImage;
-            storageImageWrite.descriptorCount = 1;
-            storageImageWrite.dstSet = rayDescriptorSet->raw();
-            storageImageWrite.setPImageInfo(&storageImageInfo);
+                writes.push_back(aStuctWrite);
 
-            vk::DescriptorBufferInfo unibufferInfo{};
-            unibufferInfo.buffer = unibuffer->raw();
-            unibufferInfo.offset = 0;
-            unibufferInfo.range = sizeof(UniformData);
+                vk::DescriptorImageInfo storageImageInfo{};
+                storageImageInfo.imageView = storage.view->raw();
+                storageImageInfo.imageLayout = vk::ImageLayout::eGeneral;
 
-            vk::WriteDescriptorSet unibufferWrite = {};
-            unibufferWrite.dstBinding = 2;
-            unibufferWrite.dstArrayElement = 0;
-            unibufferWrite.descriptorType = vk::DescriptorType::eUniformBuffer;
-            unibufferWrite.descriptorCount = 1;
-            unibufferWrite.dstSet = rayDescriptorSet->raw();
-            unibufferWrite.setPBufferInfo(&unibufferInfo);
+                vk::WriteDescriptorSet storageImageWrite{};
+                storageImageWrite.dstBinding = 1;
+                storageImageWrite.dstArrayElement = 0;
+                storageImageWrite.descriptorType = vk::DescriptorType::eStorageImage;
+                storageImageWrite.descriptorCount = 1;
+                storageImageWrite.dstSet = rayDescriptorSet->raw();
+                storageImageWrite.setPImageInfo(&storageImageInfo);
 
-            vk::DescriptorImageInfo textureInfo{};
-            textureInfo.imageView = cube->meshes[0].diffuse[0]->view();
-            textureInfo.sampler = cube->meshes[0].diffuse[0]->sampler();
-            textureInfo.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+                writes.push_back(storageImageWrite);
 
-            vk::WriteDescriptorSet textureWrite{};
-            textureWrite.dstBinding = 3;
-            textureWrite.dstArrayElement = 0;
-            textureWrite.descriptorType = vk::DescriptorType::eCombinedImageSampler;
-            textureWrite.descriptorCount = 1;
-            textureWrite.dstSet = rayDescriptorSet->raw();
-            textureWrite.setPImageInfo(&textureInfo);
+                vk::DescriptorBufferInfo unibufferInfo{};
+                unibufferInfo.buffer = unibuffer->raw();
+                unibufferInfo.offset = 0;
+                unibufferInfo.range = sizeof(UniformData);
 
-            vk::DescriptorBufferInfo vertexBufferInfo{};
-            vertexBufferInfo.buffer = vertexBuffer->raw();
-            vertexBufferInfo.offset = 0;
-            vertexBufferInfo.range = vertexBuffer->size();
+                vk::WriteDescriptorSet unibufferWrite = {};
+                unibufferWrite.dstBinding = 2;
+                unibufferWrite.dstArrayElement = 0;
+                unibufferWrite.descriptorType = vk::DescriptorType::eUniformBuffer;
+                unibufferWrite.descriptorCount = 1;
+                unibufferWrite.dstSet = rayDescriptorSet->raw();
+                unibufferWrite.setPBufferInfo(&unibufferInfo);
 
-            vk::WriteDescriptorSet vertexBufferWrite = {};
-            vertexBufferWrite.dstBinding = 4;
-            vertexBufferWrite.dstArrayElement = 0;
-            vertexBufferWrite.descriptorType = vk::DescriptorType::eStorageBuffer;
-            vertexBufferWrite.descriptorCount = 1;
-            vertexBufferWrite.dstSet = rayDescriptorSet->raw();
-            vertexBufferWrite.setPBufferInfo(&vertexBufferInfo);
+                writes.push_back(unibufferWrite);
 
-            vk::DescriptorBufferInfo indexBufferInfo{};
-            indexBufferInfo.buffer = indexBuffer->raw();
-            indexBufferInfo.offset = 0;
-            indexBufferInfo.range = indexBuffer->size();
+                std::vector<vk::DescriptorImageInfo> imageInfos;
+                imageInfos.reserve(vram.diffuse.size());
+                std::vector<vk::DescriptorBufferInfo> vertexInfos;
+                vertexInfos.reserve(vram.vertices.size());
+                std::vector<vk::DescriptorBufferInfo> indexInfos;
+                indexInfos.reserve(vram.indices.size());
+                std::vector<vk::DescriptorBufferInfo> materialInfos;
+                materialInfos.reserve(vram.materials.size());
 
-            vk::WriteDescriptorSet indexBufferWrite = {};
-            indexBufferWrite.dstBinding = 5;
-            indexBufferWrite.dstArrayElement = 0;
-            indexBufferWrite.descriptorType = vk::DescriptorType::eStorageBuffer;
-            indexBufferWrite.descriptorCount = 1;
-            indexBufferWrite.dstSet = rayDescriptorSet->raw();
-            indexBufferWrite.setPBufferInfo(&indexBufferInfo);
+                for (uint32_t iter = 0; iter < vram.vertices.size(); iter++) {
+                    vk::DescriptorImageInfo textureInfo{};
+                    textureInfo.imageView = vram.diffuse[iter]->view();
+                    textureInfo.sampler = vram.diffuse[iter]->sampler();
+                    textureInfo.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
 
-            device->raw().updateDescriptorSets({aStuctWrite, storageImageWrite, unibufferWrite, textureWrite, vertexBufferWrite, indexBufferWrite}, nullptr);
+                    imageInfos.push_back(textureInfo);
+
+                    vk::WriteDescriptorSet textureWrite{};
+                    textureWrite.dstBinding = 3;
+                    textureWrite.dstArrayElement = iter;
+                    textureWrite.descriptorType = vk::DescriptorType::eCombinedImageSampler;
+                    textureWrite.descriptorCount = 1;
+                    textureWrite.dstSet = rayDescriptorSet->raw();
+                    textureWrite.setPImageInfo(&imageInfos[iter]);
+
+                    writes.push_back(textureWrite);
+
+                    vk::DescriptorBufferInfo vertexBufferInfo{};
+                    vertexBufferInfo.buffer = vram.vertices[iter]->raw();
+                    vertexBufferInfo.offset = 0;
+                    vertexBufferInfo.range = vram.vertices[iter]->size();
+
+                    vertexInfos.push_back(vertexBufferInfo);
+
+                    vk::WriteDescriptorSet vertexBufferWrite = {};
+                    vertexBufferWrite.dstBinding = 4;
+                    vertexBufferWrite.dstArrayElement = iter;
+                    vertexBufferWrite.descriptorType = vk::DescriptorType::eStorageBuffer;
+                    vertexBufferWrite.descriptorCount = 1;
+                    vertexBufferWrite.dstSet = rayDescriptorSet->raw();
+                    vertexBufferWrite.setPBufferInfo(&vertexInfos[iter]);
+
+                    writes.push_back(vertexBufferWrite);
+
+                    vk::DescriptorBufferInfo indexBufferInfo{};
+                    indexBufferInfo.buffer = vram.indices[iter]->raw();
+                    indexBufferInfo.offset = 0;
+                    indexBufferInfo.range = vram.indices[iter]->size();
+
+                    indexInfos.push_back(indexBufferInfo);
+
+                    vk::WriteDescriptorSet indexBufferWrite = {};
+                    indexBufferWrite.dstBinding = 5;
+                    indexBufferWrite.dstArrayElement = iter;
+                    indexBufferWrite.descriptorType = vk::DescriptorType::eStorageBuffer;
+                    indexBufferWrite.descriptorCount = 1;
+                    indexBufferWrite.dstSet = rayDescriptorSet->raw();
+                    indexBufferWrite.setPBufferInfo(&indexInfos[iter]);
+
+                    writes.push_back(indexBufferWrite);
+
+                    vk::DescriptorBufferInfo materialBufferInfo{};
+                    materialBufferInfo.buffer = vram.materials[iter]->raw();
+                    materialBufferInfo.offset = 0;
+                    materialBufferInfo.range = vram.materials[iter]->size();
+
+                    materialInfos.push_back(materialBufferInfo);
+
+                    vk::WriteDescriptorSet materialBufferWrite = {};
+                    materialBufferWrite.dstBinding = 6;
+                    materialBufferWrite.dstArrayElement = iter;
+                    materialBufferWrite.descriptorType = vk::DescriptorType::eStorageBuffer;
+                    materialBufferWrite.descriptorCount = 1;
+                    materialBufferWrite.dstSet = rayDescriptorSet->raw();
+                    materialBufferWrite.setPBufferInfo(&materialInfos[iter]);
+
+                    writes.push_back(materialBufferWrite);
+                }
+
+                device->raw().updateDescriptorSets(writes, nullptr);
+            }
 
             vk::ImageSubresourceRange sRange = { vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1 };
             rayCmdBuffers = graphicsPool->allocate(swapChain->length());
@@ -516,7 +636,7 @@ class App {
 
                 vk::StridedBufferRegionKHR hitShaderSBTEntry{};
                 hitShaderSBTEntry.buffer = sbt->raw();
-                hitShaderSBTEntry.offset = static_cast<VkDeviceSize>(device->_rayTracingProperties.shaderGroupBaseAlignment * 2);
+                hitShaderSBTEntry.offset = static_cast<VkDeviceSize>(device->_rayTracingProperties.shaderGroupBaseAlignment * 3);
                 hitShaderSBTEntry.stride = device->_rayTracingProperties.shaderGroupBaseAlignment;
                 hitShaderSBTEntry.size = sbtSize;
 
@@ -601,22 +721,35 @@ class App {
         }
 
         void updateUnibuffer() {
-            static auto startTime = std::chrono::high_resolution_clock::now();
-
-            auto currentTime = std::chrono::high_resolution_clock::now();
-            float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
-
             const float aspect = static_cast<float>(swapChain->extent().width) / static_cast<float>(swapChain->extent().height);
 
+            static glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 0.0f);
+            static const float cameraSpeed = 0.1f;
+
+            if (glfwGetKey(window->raw(), GLFW_KEY_W) == GLFW_PRESS)
+                cameraPos += glm::vec3(0.0f, 0.0f, 1.0f) * cameraSpeed;
+            if (glfwGetKey(window->raw(), GLFW_KEY_S) == GLFW_PRESS)
+                cameraPos += glm::vec3(0.0f, 0.0f, -1.0f) * cameraSpeed;
+            if (glfwGetKey(window->raw(), GLFW_KEY_A) == GLFW_PRESS)
+                cameraPos += glm::vec3(1.0f, 0.0f, 0.0f) * cameraSpeed;
+            if (glfwGetKey(window->raw(), GLFW_KEY_D) == GLFW_PRESS)
+                cameraPos += glm::vec3(-1.0f, 0.0f, 0.0f) * cameraSpeed;
+            if (glfwGetKey(window->raw(), GLFW_KEY_SPACE) == GLFW_PRESS)
+                cameraPos += glm::vec3(0.0f, 1.0f, 0.0f) * cameraSpeed;
+            if (glfwGetKey(window->raw(), GLFW_KEY_BACKSPACE) == GLFW_PRESS)
+                cameraPos += glm::vec3(0.0f, -1.0f, 0.0f) * cameraSpeed;
+
             auto perspective = glm::perspective(glm::radians(60.0f), aspect, 0.1f, 512.0f);
-            auto translate = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -2.5f));
-            auto rotateY = glm::rotate(glm::mat4(1.0f), time * 2.5f, glm::vec3(0.0f, 1.0f, 0.0f));
-            auto rotateX = glm::rotate(glm::mat4(1.0f), time * 2.5f, glm::vec3(1.0f, 0.0f, 0.0f));
+            auto translate = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 1.0f, -3.5f) + cameraPos);
+            auto rotate = glm::rotate(glm::mat4(1.0f), glm::pi<float>(), glm::vec3(0.0f, 0.0f, 1.0f));
             auto scale = glm::scale(glm::mat4(1.0f), glm::vec3(0.15f, 0.15f, 0.15f));
 
             UniformData uniData {};
             uniData.projInverse = glm::inverse(perspective * glm::mat4(1.0f));
-            uniData.viewInverse = glm::inverse(translate * rotateX * rotateY * scale * glm::mat4(1.0f));
+            uniData.viewInverse = glm::inverse(translate * scale * rotate * glm::mat4(1.0f));
+            /* uniData.projInverse = camera->projI; */
+            /* uniData.viewInverse = camera->viewI; */
+            uniData.frameIndex = globalFrameCount;
 
             auto data = unibuffer->map();
             memcpy(data, &uniData, sizeof(UniformData));
@@ -627,6 +760,15 @@ class App {
         void update() {
             inFlightFences[currentFrame]->wait();
 
+            static auto startTime = std::chrono::high_resolution_clock::now();
+
+            auto currentTime = std::chrono::high_resolution_clock::now();
+            float deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+
+            startTime = currentTime;
+
+            /* camera->processInput(); */
+            /* camera->update(deltaTime); */
             updateUnibuffer();
 
             uint32_t imageIndex;
@@ -689,6 +831,7 @@ class App {
             }
 
             currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+            globalFrameCount++;
         }
 
         static void framebufferResizeCallback(GLFWwindow* window, int width, int height) {
@@ -696,6 +839,10 @@ class App {
             app->framebufferResized = true;
         }
 
+        /* static void mousePositionCallback(GLFWwindow* window, double xpos, double ypos) { */
+        /*     auto app = reinterpret_cast<App*>(glfwGetWindowUserPointer(window)); */
+        /*     app->camera->processMouse(xpos, ypos); */
+        /* } */
 
     public:
         void run() {

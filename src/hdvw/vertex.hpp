@@ -12,6 +12,10 @@ namespace hd {
         glm::vec3 pos;
         glm::vec3 normals;
         glm::vec2 texCoord;
+        glm::vec3 tangent;
+        glm::vec3 bitangent;
+
+        static const uint32_t numEntries = 5;
 
         static vk::VertexInputBindingDescription getBindingDescription() {
             vk::VertexInputBindingDescription bindingDescription = {};
@@ -22,8 +26,8 @@ namespace hd {
             return bindingDescription;
         }
 
-        static std::array<vk::VertexInputAttributeDescription, 3> getAttributeDescriptions() {
-            std::array<vk::VertexInputAttributeDescription, 3> attributeDescriptions = {};
+        static std::array<vk::VertexInputAttributeDescription, numEntries> getAttributeDescriptions() {
+            std::array<vk::VertexInputAttributeDescription, numEntries> attributeDescriptions = {};
 
             attributeDescriptions[0].binding = 0;
             attributeDescriptions[0].location = 0;
@@ -40,11 +44,25 @@ namespace hd {
             attributeDescriptions[2].format = vk::Format::eR32G32Sfloat;
             attributeDescriptions[2].offset = offsetof(Vertex, texCoord);
 
+            attributeDescriptions[3].binding = 0;
+            attributeDescriptions[3].location = 3;
+            attributeDescriptions[3].format = vk::Format::eR32G32B32Sfloat;
+            attributeDescriptions[3].offset = offsetof(Vertex, tangent);
+
+            attributeDescriptions[4].binding = 0;
+            attributeDescriptions[4].location = 4;
+            attributeDescriptions[4].format = vk::Format::eR32G32B32Sfloat;
+            attributeDescriptions[4].offset = offsetof(Vertex, bitangent);
+
             return attributeDescriptions;
         }
 
         bool operator==(const Vertex& other) const {
-            return pos == other.pos && normals == other.normals && texCoord == other.texCoord;
+            return pos == other.pos 
+                && normals == other.normals 
+                && texCoord == other.texCoord
+                && tangent == other.tangent
+                && bitangent == other.bitangent;
         }
     };
 }
@@ -52,7 +70,15 @@ namespace hd {
 namespace std {
     template<> struct hash<hd::Vertex> {
         size_t operator()(hd::Vertex const& vertex) const {
-            return ((hash<glm::vec3>()(vertex.pos) ^ (hash<glm::vec3>()(vertex.normals) << 1)) >> 1) ^ (hash<glm::vec2>()(vertex.texCoord) << 1);
+            constexpr auto shift = [](auto left, auto right) {
+                return (hash<decltype(left)>()(left)) ^ (hash<decltype(right)>()(right) << 1);
+            };
+
+            constexpr auto shiftr = [](auto left, auto right) {
+                return (left >> 1) ^ (hash<decltype(right)>()(right) << 1);
+            };
+
+            return shiftr(shiftr(shiftr(shift(vertex.pos, vertex.normals), vertex.texCoord), vertex.tangent), vertex.bitangent);
         }
     };
 }
