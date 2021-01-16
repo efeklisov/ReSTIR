@@ -117,13 +117,17 @@ Device_t::Device_t(DeviceCreateInfo ci) {
     vk::PhysicalDeviceProperties info = _physicalDevice.getProperties();
     std::cout << info.deviceName << std::endl;
 
-    auto properties2 = _physicalDevice.getProperties2<vk::PhysicalDeviceProperties2,
-                                                    vk::PhysicalDeviceRayTracingPropertiesKHR>();
-    _rayTracingProperties = properties2.get<vk::PhysicalDeviceRayTracingPropertiesKHR>();
+    _rayTracingProperties = _physicalDevice.getProperties2<vk::PhysicalDeviceProperties2, 
+                       vk::PhysicalDeviceRayTracingPipelinePropertiesKHR>().get<vk::PhysicalDeviceRayTracingPipelinePropertiesKHR>();
 
-    auto features2 = _physicalDevice.getFeatures2<vk::PhysicalDeviceFeatures2,
-                                                    vk::PhysicalDeviceRayTracingFeaturesKHR>();
-    _rayTracingFeatures = features2.get<vk::PhysicalDeviceRayTracingFeaturesKHR>();
+    _rayTracingFeatures = _physicalDevice.getFeatures2<vk::PhysicalDeviceFeatures2, 
+                       vk::PhysicalDeviceRayTracingPipelineFeaturesKHR>().get<vk::PhysicalDeviceRayTracingPipelineFeaturesKHR>();
+
+    _aStructProperties = _physicalDevice.getProperties2<vk::PhysicalDeviceProperties2, 
+                       vk::PhysicalDeviceAccelerationStructurePropertiesKHR>().get<vk::PhysicalDeviceAccelerationStructurePropertiesKHR>();
+
+    _aStructFeatures = _physicalDevice.getFeatures2<vk::PhysicalDeviceFeatures2, 
+                       vk::PhysicalDeviceAccelerationStructureFeaturesKHR>().get<vk::PhysicalDeviceAccelerationStructureFeaturesKHR>();
 
     _physicalMemProps = _physicalDevice.getMemoryProperties();
 

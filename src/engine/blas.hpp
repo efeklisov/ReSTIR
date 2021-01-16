@@ -28,8 +28,7 @@ namespace hd {
             Allocator _allocator;
             vk::AccelerationStructureKHR _aStruct;
             vk::DeviceAddress _aAddress;
-            VmaAllocation _objMem;
-            VmaAllocationInfo _objMemInfo;
+            ReturnBuffer memory;
 
         public:
             static BLAS conjure(BLASCreateInfo ci) {

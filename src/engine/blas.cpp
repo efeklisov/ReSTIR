@@ -6,102 +6,76 @@ namespace hd {
          _allocator = ci.allocator;
 
         // BLAS
-        vk::AccelerationStructureCreateGeometryTypeInfoKHR aGeometryCI{};
-        aGeometryCI.geometryType = vk::GeometryTypeKHR::eTriangles;
-        aGeometryCI.maxPrimitiveCount = ci.indices->count() / 3;
-        aGeometryCI.indexType = vk::IndexType::eUint32;
-        aGeometryCI.maxVertexCount = static_cast<uint32_t>(ci.vertices->size());
-        aGeometryCI.vertexFormat = vk::Format::eR32G32B32Sfloat;
-        aGeometryCI.allowsTransforms = false;
-
-        vk::AccelerationStructureCreateInfoKHR aCI{};
-        aCI.type = vk::AccelerationStructureTypeKHR::eBottomLevel;
-        aCI.flags = vk::BuildAccelerationStructureFlagBitsKHR::ePreferFastTrace;
-        aCI.setGeometryInfos(aGeometryCI);
-        
-        _aStruct = _device.createAccelerationStructureKHR(aCI, nullptr);
-
-        // Object Memory
-        vk::AccelerationStructureMemoryRequirementsInfoKHR aMemreq{};
-        aMemreq.type = vk::AccelerationStructureMemoryRequirementsTypeKHR::eObject;
-        aMemreq.buildType = vk::AccelerationStructureBuildTypeKHR::eDevice;
-        aMemreq.accelerationStructure = _aStruct;
-
-        auto memReq = _device.getAccelerationStructureMemoryRequirementsKHR(aMemreq).memoryRequirements;
-        auto mem = _allocator->allocate(memReq);
-        _objMem = mem.allocation;
-        _objMemInfo = mem.allocationInfo;
-
-        vk::BindAccelerationStructureMemoryInfoKHR aMemBI{};
-        aMemBI.accelerationStructure = _aStruct;
-        aMemBI.memory = _objMemInfo.deviceMemory;
-        aMemBI.memoryOffset = _objMemInfo.offset;
-        _device.bindAccelerationStructureMemoryKHR(aMemBI);
-
-        // Geometry
-        vk::AccelerationStructureGeometryTrianglesDataKHR triangles;
-        triangles.vertexFormat = aGeometryCI.vertexFormat;
-        triangles.vertexData.deviceAddress = ci.vertices->address().deviceAddress;
+        vk::AccelerationStructureGeometryTrianglesDataKHR triangles{};
+        triangles.vertexFormat = vk::Format::eR32G32B32Sfloat;
+        triangles.vertexData = ci.vertices->address().deviceAddress;
+        triangles.maxVertex = ci.vertices->size();
         triangles.vertexStride = sizeof(Vertex);
-        triangles.indexType = aGeometryCI.indexType;
-        triangles.indexData.deviceAddress = ci.indices->address().deviceAddress;
-        triangles.transformData = {};
+        triangles.indexType = vk::IndexType::eUint32;
+        triangles.indexData = ci.indices->address().deviceAddress;
+        triangles.vertexStride = sizeof(Vertex);
 
-        vk::AccelerationStructureGeometryKHR aGeometry{};
-        aGeometry.flags = vk::GeometryFlagBitsKHR::eOpaque;
-        aGeometry.geometryType = aGeometryCI.geometryType;
-        aGeometry.geometry.triangles = triangles;
+        vk::AccelerationStructureGeometryKHR aStructGeometry{};
+        aStructGeometry.flags = vk::GeometryFlagBitsKHR::eOpaque;
+        aStructGeometry.geometryType = vk::GeometryTypeKHR::eTriangles;
+        aStructGeometry.geometry.triangles = triangles;
 
-        const std::vector<vk::AccelerationStructureGeometryKHR> aGeometries = { aGeometry };
-        auto aGeometries_p = aGeometries.data();
+        vk::AccelerationStructureBuildGeometryInfoKHR aStructGeometryBI{};
+        aStructGeometryBI.type = vk::AccelerationStructureTypeKHR::eBottomLevel;
+        aStructGeometryBI.flags = vk::BuildAccelerationStructureFlagBitsKHR::ePreferFastTrace;
+        aStructGeometryBI.setGeometries(aStructGeometry);
 
-        // Scratch buffer
-        vk::AccelerationStructureMemoryRequirementsInfoKHR sMemReqInfo{};
-        sMemReqInfo.type = vk::AccelerationStructureMemoryRequirementsTypeKHR::eBuildScratch;
-        sMemReqInfo.buildType = vk::AccelerationStructureBuildTypeKHR::eDevice;
-        sMemReqInfo.accelerationStructure = _aStruct;
-
-        auto sMemReq = _device.getAccelerationStructureMemoryRequirementsKHR(sMemReqInfo);
+        vk::AccelerationStructureBuildSizesInfoKHR aStructSizesBI = _device.getAccelerationStructureBuildSizesKHR(
+                vk::AccelerationStructureBuildTypeKHR::eDevice, aStructGeometryBI, ci.indices->count() / 3);
 
         vk::BufferCreateInfo bufferCI{};
-        bufferCI.size = sMemReq.memoryRequirements.size;
-        bufferCI.usage = vk::BufferUsageFlagBits::eRayTracingKHR | vk::BufferUsageFlagBits::eShaderDeviceAddress;
-        bufferCI.sharingMode = vk::SharingMode::eExclusive;
+        bufferCI.size = aStructSizesBI.accelerationStructureSize;
+        bufferCI.usage = vk::BufferUsageFlagBits::eAccelerationStructureStorageKHR | vk::BufferUsageFlagBits::eShaderDeviceAddress;
 
-        auto sBuffer = _allocator->create(bufferCI, VMA_MEMORY_USAGE_CPU_TO_GPU);
+        memory = _allocator->create(bufferCI, VMA_MEMORY_USAGE_GPU_ONLY);
 
-        vk::BufferDeviceAddressInfo sAddressInfo{};
-        sAddressInfo.buffer = sBuffer.buffer;
+        vk::AccelerationStructureCreateInfoKHR aStructCI{};
+        aStructCI.buffer = memory.buffer;
+        aStructCI.size = aStructSizesBI.accelerationStructureSize;
+        aStructCI.type = vk::AccelerationStructureTypeKHR::eBottomLevel;
 
-        auto sAddress = _device.getBufferAddress(sAddressInfo);
+        _aStruct = _device.createAccelerationStructureKHR(aStructCI, nullptr);
+
+        // Scratch
+        vk::BufferCreateInfo scratchCI{};
+        scratchCI.size = aStructSizesBI.buildScratchSize;
+        scratchCI.usage = vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eShaderDeviceAddress;
+
+        auto scratch = _allocator->create(scratchCI, VMA_MEMORY_USAGE_CPU_TO_GPU);
+
+        vk::BufferDeviceAddressInfo scratchAI{};
+        scratchAI.buffer = scratch.buffer;
+
+        auto scratchAdress = _device.getBufferAddress(scratchAI);
 
         // Build
-        vk::AccelerationStructureBuildGeometryInfoKHR aGeometryBI{};
-        aGeometryBI.type = vk::AccelerationStructureTypeKHR::eBottomLevel;
-        aGeometryBI.flags = vk::BuildAccelerationStructureFlagBitsKHR::ePreferFastTrace;
-        aGeometryBI.update = false;
-        aGeometryBI.dstAccelerationStructure = _aStruct;
-        aGeometryBI.geometryArrayOfPointers = false;
-        aGeometryBI.geometryCount = aGeometries.size();
-        aGeometryBI.ppGeometries = &aGeometries_p;
-        aGeometryBI.scratchData.deviceAddress = sAddress;
+        vk::AccelerationStructureBuildGeometryInfoKHR aStructGeometryBI2{};
+        aStructGeometryBI2.type = vk::AccelerationStructureTypeKHR::eBottomLevel;
+        aStructGeometryBI2.flags = vk::BuildAccelerationStructureFlagBitsKHR::ePreferFastTrace;
+        aStructGeometryBI2.mode = vk::BuildAccelerationStructureModeKHR::eBuild;
+        aStructGeometryBI2.dstAccelerationStructure = _aStruct;
+        aStructGeometryBI2.setGeometries(aStructGeometry);
+        aStructGeometryBI2.scratchData.deviceAddress = scratchAdress;
 
-        vk::AccelerationStructureBuildOffsetInfoKHR aOffsetBI{};
-        aOffsetBI.primitiveCount = aGeometryCI.maxPrimitiveCount;
-        aOffsetBI.primitiveOffset = 0x0;
-        aOffsetBI.firstVertex = 0;
-        aOffsetBI.transformOffset = 0x0;
+        vk::AccelerationStructureBuildRangeInfoKHR aRangeBI{};
+        aRangeBI.primitiveCount = ci.indices->count() / 3;
+        aRangeBI.primitiveOffset = 0x0;
+        aRangeBI.firstVertex = 0;
+        aRangeBI.transformOffset = 0x0;
 
-        const vk::AccelerationStructureBuildOffsetInfoKHR * const aOffsetBI_p_c = &aOffsetBI;
-
-        if (ci.device->_rayTracingFeatures.rayTracingHostAccelerationStructureCommands) {
+        if (ci.device->_aStructFeatures.accelerationStructureHostCommands) {
             // Implementation supports building acceleration structure building on host
-            if (_device.buildAccelerationStructureKHR(aGeometryBI, aOffsetBI_p_c) != vk::Result::eSuccess)
+            if (_device.buildAccelerationStructuresKHR(nullptr, aStructGeometryBI2, &aRangeBI) != vk::Result::eSuccess)
                 throw std::runtime_error("Unable to create BLAS");
         } else {
             // Acceleration structure needs to be build on the device
             auto cmd = ci.commandPool->singleTimeBegin();
-            cmd->raw().buildAccelerationStructureKHR(aGeometryBI, aOffsetBI_p_c);
+            cmd->raw().buildAccelerationStructuresKHR(aStructGeometryBI2, &aRangeBI);
             ci.commandPool->singleTimeEnd(cmd, ci.queue);
         }
 
@@ -111,7 +85,7 @@ namespace hd {
         _aAddress = _device.getAccelerationStructureAddressKHR(aDeviceAddressInfo);
 
         // Cleanup
-        _allocator->destroy(sBuffer.buffer, sBuffer.allocation);
+        _allocator->destroy(scratch.buffer, scratch.allocation);
     }
 
     vk::AccelerationStructureKHR BLAS_t::raw() {
@@ -124,6 +98,6 @@ namespace hd {
 
     BLAS_t::~BLAS_t() {
         _device.destroyAccelerationStructureKHR(_aStruct);
-        _allocator->free(_objMem);
+        _allocator->destroy(memory.buffer, memory.allocation);
     }
 }

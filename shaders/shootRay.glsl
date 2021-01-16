@@ -19,22 +19,19 @@ float nextRand(inout uint seed)
   return float(seed & 0x00FFFFFF) / float(0x01000000);
 }
 
-vec3 CosineWeightedHemisphereSample(inout uint seed, vec3 normal, vec3 tangent, vec3 bitangent)
+vec3 CosineWeightedHemisphereSample(inout uint seed, Vertex v, out float cosTheta)
 {
   vec2 rand = vec2(nextRand(seed), nextRand(seed));
 
   float r = sqrt(rand.x);
   float phi = 2.0f * 3.14159265f * rand.y;
 
-  return tangent * (r * cos(phi).x) + bitangent * (r * sin(phi)) + normal * sqrt(1 - rand.x);
-}
-
-vec3 bInterpolation(vec3 frst, vec3 scnd, vec3 thrd, vec3 barycentric) {
-    return normalize(frst * barycentric.x + scnd * barycentric.y + thrd * barycentric.z);
+  cosTheta = 3.14159265f * rand.x;
+  return v.tangent * (r * cos(phi)) + v.bitangent * (r * sin(phi)) + v.normal * sqrt(1 - rand.x);
 }
 
 vec3 colorRay(vec3 origin, vec3 direction, uint seed, uint depth) {
-    if (depth >= 32)
+    if (depth >= 4)
         return vec3(0.0f);
 
 	float tmin = 0.001f;

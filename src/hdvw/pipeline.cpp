@@ -138,10 +138,10 @@ RaytraycingPipeline_t::RaytraycingPipeline_t(RaytraycingPipelineCreateInfo ci) {
     vk::RayTracingPipelineCreateInfoKHR pipelineInfo{};
     pipelineInfo.setStages(ci.shaderInfos);
     pipelineInfo.setGroups(ci.shaderGroups);
-    pipelineInfo.maxRecursionDepth = 2;
     pipelineInfo.layout = ci.pipelineLayout->raw();
+    pipelineInfo.maxPipelineRayRecursionDepth = 2;
     
-    auto res = _device.createRayTracingPipelineKHR(nullptr, pipelineInfo, nullptr);
+    auto res = _device.createRayTracingPipelineKHR(nullptr, nullptr, pipelineInfo, nullptr);
     if (res.result != vk::Result::eSuccess)
         throw std::runtime_error("Failed to create a raytraycing pipeline");
 

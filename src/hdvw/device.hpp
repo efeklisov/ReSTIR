@@ -65,8 +65,10 @@ namespace hd {
             DeviceSuitableReturn deviceSuitable(vk::PhysicalDevice physicalDevice, DeviceCreateInfo& ci);
 
         public:
-            vk::PhysicalDeviceRayTracingPropertiesKHR _rayTracingProperties{};
-            vk::PhysicalDeviceRayTracingFeaturesKHR _rayTracingFeatures{};
+            vk::PhysicalDeviceRayTracingPipelinePropertiesKHR _rayTracingProperties{};
+            vk::PhysicalDeviceRayTracingPipelineFeaturesKHR _rayTracingFeatures{};
+            vk::PhysicalDeviceAccelerationStructurePropertiesKHR _aStructProperties{};
+            vk::PhysicalDeviceAccelerationStructureFeaturesKHR _aStructFeatures{};
 
             static Device conjure(DeviceCreateInfo ci) {
                 return std::make_shared<Device_t>(ci);

@@ -14,16 +14,25 @@ namespace hd {
         Pipeline pipeline;
         Device device;
         Allocator allocator;
-        uint32_t groupCount;
+        uint32_t raygenCount;
+        uint32_t missCount;
+        uint32_t hitCount;
     };
 
     class SBT_t;
     typedef std::shared_ptr<SBT_t> SBT;
 
+    struct SBTEntry {
+        Buffer buffer;
+        vk::DeviceAddress address;
+        uint32_t count;
+    };
+
     class SBT_t {
         private:
-            Buffer _buffer;
-            vk::DeviceSize _shaderGroups;
+            SBTEntry _raygen;
+            SBTEntry _miss;
+            SBTEntry _hit;
 
         public:
             static SBT conjure(SBTCreateInfo ci) {
@@ -32,8 +41,8 @@ namespace hd {
 
             SBT_t(SBTCreateInfo ci);
 
-            vk::Buffer raw();
-
-            vk::DeviceSize size();
+            SBTEntry raygen();
+            SBTEntry miss();
+            SBTEntry hit();
     };
 }

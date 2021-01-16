@@ -131,19 +131,32 @@ class App {
             vk::PhysicalDeviceFeatures feats{};
             feats.samplerAnisotropy = true;
 
-            vk::PhysicalDeviceRayTracingFeaturesKHR ray_feats{};
-            ray_feats.rayTracing = true;
+            /* vk::PhysicalDeviceVulkan12Features feats12{}; */
+            /* feats12.bufferDeviceAddress = true; */
+            /* feats12.runtimeDescriptorArray = true; */
+            /* feats12.shaderSampledImageArrayNonUniformIndexing = true; */
+            /* feats12.shaderStorageBufferArrayNonUniformIndexing = true; */
 
-            vk::PhysicalDeviceVulkan12Features feats12{};
-            feats12.bufferDeviceAddress = true;
-            feats12.runtimeDescriptorArray = true;
-            feats12.shaderSampledImageArrayNonUniformIndexing = true;
-            feats12.shaderStorageBufferArrayNonUniformIndexing = true;
-            feats12.pNext = &ray_feats;
+            vk::PhysicalDeviceDescriptorIndexingFeatures desc_feats{};
+            desc_feats.runtimeDescriptorArray = true;
+            desc_feats.shaderSampledImageArrayNonUniformIndexing = true;
+            desc_feats.shaderStorageBufferArrayNonUniformIndexing = true;
+
+            vk::PhysicalDeviceAccelerationStructureFeaturesKHR acc_feats{};
+            acc_feats.accelerationStructure = true;
+            acc_feats.pNext = &desc_feats;
+
+            vk::PhysicalDeviceRayTracingPipelineFeaturesKHR ray_feats{};
+            ray_feats.rayTracingPipeline = true;
+            ray_feats.pNext = &acc_feats;
+
+            vk::PhysicalDeviceBufferDeviceAddressFeatures buffer_feats{};
+            buffer_feats.bufferDeviceAddress = true;
+            buffer_feats.pNext = &ray_feats;
 
             vk::PhysicalDeviceFeatures2 all_feats{};
             all_feats.features = feats;
-            all_feats.pNext = &feats12;
+            all_feats.pNext = &buffer_feats;
 
             device = hd::Device_t::conjure({
                     .instance = instance,
@@ -151,10 +164,14 @@ class App {
                     .extensions = { 
                         VK_KHR_SWAPCHAIN_EXTENSION_NAME,
                         VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME,
-                        VK_KHR_RAY_TRACING_EXTENSION_NAME, // BETA
+                        VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
+                        VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
                         VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,
-                        VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME, // BETA
-                        VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME, // BETA
+                        VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
+                        VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME,
+                        VK_KHR_SPIRV_1_4_EXTENSION_NAME,
+                        VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME,
+                        VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,
                     },
                     .features = all_feats,
                     .validationLayers = { "VK_LAYER_KHRONOS_validation" },
@@ -274,7 +291,7 @@ class App {
                     .allocator = allocator,
                     .device = device,
                     .data = instances,
-                    .usage = vk::BufferUsageFlagBits::eRayTracingKHR,
+                    .usage = vk::BufferUsageFlagBits::eAccelerationStructureBuildInputReadOnlyKHR,
                     .memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU,
                     });
 
@@ -403,6 +420,9 @@ class App {
                     .pipeline = rayPipeline,
                     .device = device,
                     .allocator = allocator,
+                    .raygenCount = 1,
+                    .missCount = 2,
+                    .hitCount = 1,
                     });
         }
 
@@ -620,27 +640,22 @@ class App {
                 rayCmdBuffers[i]->raw().bindPipeline(vk::PipelineBindPoint::eRayTracingKHR, rayPipeline->raw());
                 rayCmdBuffers[i]->raw().bindDescriptorSets(vk::PipelineBindPoint::eRayTracingKHR, rayPipeLayout->raw(), 0, rayDescriptorSet->raw(), nullptr);
 
-                const vk::DeviceSize sbtSize = device->_rayTracingProperties.shaderGroupBaseAlignment * (vk::DeviceSize) sbt->size();
+                vk::StridedDeviceAddressRegionKHR raygenShaderSBTEntry{};
+                raygenShaderSBTEntry.deviceAddress = sbt->raygen().address;
+                raygenShaderSBTEntry.stride = device->_rayTracingProperties.shaderGroupHandleSize;
+                raygenShaderSBTEntry.size = device->_rayTracingProperties.shaderGroupHandleSize * sbt->raygen().count;
 
-                vk::StridedBufferRegionKHR raygenShaderSBTEntry{};
-                raygenShaderSBTEntry.buffer = sbt->raw();
-                raygenShaderSBTEntry.offset = static_cast<vk::DeviceSize>(device->_rayTracingProperties.shaderGroupBaseAlignment * 0);
-                raygenShaderSBTEntry.stride = device->_rayTracingProperties.shaderGroupBaseAlignment;
-                raygenShaderSBTEntry.size = sbtSize;
+                vk::StridedDeviceAddressRegionKHR missShaderSBTEntry{};
+                missShaderSBTEntry.deviceAddress = sbt->miss().address;
+                missShaderSBTEntry.stride = device->_rayTracingProperties.shaderGroupHandleSize;
+                missShaderSBTEntry.size = device->_rayTracingProperties.shaderGroupHandleSize * sbt->miss().count;
 
-                vk::StridedBufferRegionKHR missShaderSBTEntry{};
-                missShaderSBTEntry.buffer = sbt->raw();
-                missShaderSBTEntry.offset = static_cast<vk::DeviceSize>(device->_rayTracingProperties.shaderGroupBaseAlignment * 1);
-                missShaderSBTEntry.stride = device->_rayTracingProperties.shaderGroupBaseAlignment;
-                missShaderSBTEntry.size = sbtSize;
+                vk::StridedDeviceAddressRegionKHR hitShaderSBTEntry{};
+                hitShaderSBTEntry.deviceAddress = sbt->hit().address;
+                hitShaderSBTEntry.stride = device->_rayTracingProperties.shaderGroupHandleSize;
+                hitShaderSBTEntry.size = device->_rayTracingProperties.shaderGroupHandleSize * sbt->hit().count;
 
-                vk::StridedBufferRegionKHR hitShaderSBTEntry{};
-                hitShaderSBTEntry.buffer = sbt->raw();
-                hitShaderSBTEntry.offset = static_cast<VkDeviceSize>(device->_rayTracingProperties.shaderGroupBaseAlignment * 3);
-                hitShaderSBTEntry.stride = device->_rayTracingProperties.shaderGroupBaseAlignment;
-                hitShaderSBTEntry.size = sbtSize;
-
-                vk::StridedBufferRegionKHR callableShaderSBTEntry{};
+                vk::StridedDeviceAddressRegionKHR callableShaderSBTEntry{};
 
                 rayCmdBuffers[i]->raw().traceRaysKHR(
                         raygenShaderSBTEntry,
@@ -724,7 +739,7 @@ class App {
             const float aspect = static_cast<float>(swapChain->extent().width) / static_cast<float>(swapChain->extent().height);
 
             static glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 0.0f);
-            static const float cameraSpeed = 0.1f;
+            static const float cameraSpeed = 0.05f;
 
             if (glfwGetKey(window->raw(), GLFW_KEY_W) == GLFW_PRESS)
                 cameraPos += glm::vec3(0.0f, 0.0f, 1.0f) * cameraSpeed;
@@ -742,11 +757,12 @@ class App {
             auto perspective = glm::perspective(glm::radians(60.0f), aspect, 0.1f, 512.0f);
             auto translate = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 1.0f, -3.5f) + cameraPos);
             auto rotate = glm::rotate(glm::mat4(1.0f), glm::pi<float>(), glm::vec3(0.0f, 0.0f, 1.0f));
+            auto rotateZ = glm::rotate(glm::mat4(1.0f), glm::pi<float>() / 2, glm::vec3(0.0f, 1.0f, 0.0f));
             auto scale = glm::scale(glm::mat4(1.0f), glm::vec3(0.15f, 0.15f, 0.15f));
 
             UniformData uniData {};
             uniData.projInverse = glm::inverse(perspective * glm::mat4(1.0f));
-            uniData.viewInverse = glm::inverse(translate * scale * rotate * glm::mat4(1.0f));
+            uniData.viewInverse = glm::inverse(translate * scale * rotate * rotateZ * glm::mat4(1.0f));
             /* uniData.projInverse = camera->projI; */
             /* uniData.viewInverse = camera->viewI; */
             uniData.frameIndex = globalFrameCount;
