@@ -75,19 +75,34 @@ void main()
     // Light
     PointLight light;
     light.pos = vec3(-4.0f, 5.0f, -2.0f);
-    light.color = vec3(1.0f, 1.0f, 1.0f);
+    light.color = vec3(0.0f, 0.0f, 1.0f);
     light.intensity = 3000.0f;
 
-    vec3  lightDir;
-    vec3  lightIntensity;
-    float lightDistance;
-    getLightInfo(light, v.pos, lightDir, lightIntensity, lightDistance);
+    PointLight light1;
+    light1.pos = vec3(4.0f, 5.0f, 3.0f);
+    light1.color = vec3(1.0f, 0.0f, 0.0f);
+    light1.intensity = 4000.0f;
 
-    vec3 L = -lightDir;
+    PointLight light2;
+    light2.pos = vec3(4.0f, 5.0f, -3.0f);
+    light2.color = vec3(0.0f, 1.0f, 0.0f);
+    light2.intensity = 2000.0f;
 
-    float shadowness = shadowRay(v.pos, shadowBias, L, lightDistance);
+    const int lightsNum = 3;
+    PointLight lights[lightsNum] = { light, light1, light2 };
 
-    hitValue.color = shadowness * albedo / pi * lightIntensity * texColor * max(0.0f, dot(v.normal, L));
+    for (int i = 0; i < lightsNum; i++) {
+        vec3  lightDir;
+        vec3  lightIntensity;
+        float lightDistance;
+        getLightInfo(lights[i], v.pos, lightDir, lightIntensity, lightDistance);
+
+        vec3 L = -lightDir;
+
+        float shadowness = shadowRay(v.pos, shadowBias, L, lightDistance);
+
+        hitValue.color += shadowness * albedo / pi * lightIntensity * max(0.0f, dot(v.normal, L));
+    }
 
 //    vec3 lightComputed = vec3(max(dot(v.normal, lightVector), 0.2));
 
