@@ -15,6 +15,7 @@ layout(binding = 3, set = 0) uniform sampler2D texSamplers[];
 layout(binding = 4, set = 0, scalar) buffer Vertices { Vertex v[]; } vertices[];
 layout(binding = 5, set = 0) buffer Indices { uint i[]; } indices[];
 layout(binding = 6, set = 0, scalar) buffer Materials { Material m; } materials[];
+layout(binding = 7, set = 0, scalar) buffer Lights { PointLight l[]; } lights;
 
 float shadowBias = 0.0001f;
 float pi = 3.14159265f;
@@ -80,23 +81,8 @@ void main()
     Material mat = materials[nonuniformEXT(gl_InstanceCustomIndexEXT)].m;
 
     // Light
-    PointLight light;
-    light.pos = vec3(-4.0f, 5.0f, -2.0f);
-    light.color = vec3(0.0f, 0.0f, 1.0f);
-    light.intensity = 6000.0f;
-
-    PointLight light1;
-    light1.pos = vec3(4.0f, 5.0f, 3.0f);
-    light1.color = vec3(1.0f, 0.0f, 0.0f);
-    light1.intensity = 4000.0f;
-
-    PointLight light2;
-    light2.pos = vec3(4.0f, 5.0f, -3.0f);
-    light2.color = vec3(0.0f, 1.0f, 0.0f);
-    light2.intensity = 2000.0f;
-
     const int lightsNum = 3;
-    PointLight lights[lightsNum] = { light, light1, light2 };
+    PointLight lights[lightsNum] = { lights.l[0], lights.l[1], lights.l[2] };
 
     // Phong
     vec3 diffuse = vec3(0.0f);

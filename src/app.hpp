@@ -6,8 +6,11 @@
 #include <glm/glm.hpp>
 
 #include <external/vk_mem_alloc.h>
+#include <external/rapidjson/document.h>
 
 #include <iostream>
+#include <fstream>
+#include <sstream>
 #include <vector>
 #include <chrono>
 
@@ -54,6 +57,12 @@ struct UniformData {
     uint32_t frameIndex;
 };
 
+struct LightData {
+    glm::vec3 pos;
+    glm::vec3 color;
+    float intensity;
+};
+
 class App {
     private:
         bool framebufferResized = false;
@@ -85,6 +94,7 @@ class App {
             std::vector<vram_indices> indices;
             std::vector<vram_texture> diffuse;
             std::vector<vram_material> materials;
+            hd::DataBuffer<LightData> lights;
 
             std::vector<hd::BLAS> blases;
             hd::TLAS tlas;
@@ -218,6 +228,61 @@ class App {
                                 device,
                                 }); },
                     });
+            
+            std::vector<LightData> lights;
+            { // START Process JSON
+                std::ifstream file("models/scene.json", std::ios_base::in);
+                assert(!file.fail());
+
+                std::stringstream fileStr;
+                fileStr << file.rdbuf();
+                file.close();
+
+                rapidjson::Document sceneJSON;
+                sceneJSON.Parse(fileStr.str().c_str());
+                fileStr.clear();
+
+                assert(sceneJSON.IsObject());
+
+                const auto& lightsValue = sceneJSON["Lights"];
+                assert(lightsValue.IsArray());
+
+                lights.reserve(lightsValue.Size());
+                for (const auto& lightInfo : lightsValue.GetArray()) {
+                    assert(lightInfo.IsObject());
+
+                    const auto& posInfo = lightInfo["pos"];
+                    assert(posInfo.IsArray());
+                    assert(posInfo.Size() == 3);
+
+                    glm::vec3 pos(0.0f);
+                    for (rapidjson::SizeType i = 0; i < posInfo.Size(); i++) {
+                        assert(posInfo[i].IsFloat());
+                        pos[i] = posInfo[i].GetFloat();
+                    }
+
+                    const auto& colorInfo = lightInfo["color"];
+                    assert(colorInfo.IsArray());
+                    assert(colorInfo.Size() == 3);
+
+                    glm::vec3 color(0.0f);
+                    for (rapidjson::SizeType i = 0; i < colorInfo.Size(); i++) {
+                        assert(colorInfo[i].IsFloat());
+                        color[i] = colorInfo[i].GetFloat();
+                    }
+
+                    const auto& intensityInfo = lightInfo["intensity"];
+                    assert(intensityInfo.IsFloat());
+
+                    float intensity = intensityInfo.GetFloat();
+
+                    lights.push_back({
+                            .pos = pos,
+                            .color = color,
+                            .intensity = intensity,
+                            });
+                }
+            } // END Process JSON
 
             vram.vertices.reserve(scene->meshes.size());
             vram.indices.reserve(scene->meshes.size());
@@ -285,6 +350,15 @@ class App {
                 instances.push_back(instanceInfo);
             }
 
+            vram.lights = hd::DataBuffer_t<LightData>::conjure({
+                    .commandPool = graphicsPool,
+                    .queue = graphicsQueue,
+                    .allocator = allocator,
+                    .device = device,
+                    .data = lights,
+                    .usage = vk::BufferUsageFlagBits::eStorageBuffer,
+                    });
+
             auto instbuffer = hd::DataBuffer_t<vk::AccelerationStructureInstanceKHR>::conjure({
                     .commandPool = graphicsPool,
                     .queue = graphicsQueue,
@@ -347,9 +421,19 @@ class App {
             materialBinding.descriptorCount = vram.materials.size();
             materialBinding.stageFlags = vk::ShaderStageFlagBits::eClosestHitKHR;
 
+            vk::DescriptorSetLayoutBinding lightsBinding{};
+            lightsBinding.binding = 7;
+            lightsBinding.descriptorType = vk::DescriptorType::eStorageBuffer;
+            lightsBinding.descriptorCount = 1;
+            lightsBinding.stageFlags = vk::ShaderStageFlagBits::eClosestHitKHR;
+
             rayLayout = hd::DescriptorLayout_t::conjure({
                     .device = device,
-                    .bindings = { aStructLayoutBinding, resImageLayoutBinding, uniBufferBinding, textureBinding, vertexBinding, indicesBinding, materialBinding },
+                    .bindings = { 
+                            aStructLayoutBinding, resImageLayoutBinding, uniBufferBinding, 
+                            textureBinding, vertexBinding, indicesBinding, materialBinding,
+                            lightsBinding
+                        },
                     });
 
             rayPipeLayout = hd::PipelineLayout_t::conjure({
@@ -507,7 +591,7 @@ class App {
 
             {
                 std::vector<vk::WriteDescriptorSet> writes;
-                writes.reserve(3 + vram.vertices.size());
+                writes.reserve(4 + vram.vertices.size());
 
                 auto topLevelAStruct = vram.tlas->raw();
                 vk::WriteDescriptorSetAccelerationStructureKHR aStructDI{};
@@ -550,6 +634,21 @@ class App {
                 unibufferWrite.setPBufferInfo(&unibufferInfo);
 
                 writes.push_back(unibufferWrite);
+
+                vk::DescriptorBufferInfo lightsInfo{};
+                lightsInfo.buffer = vram.lights->raw();
+                lightsInfo.offset = 0;
+                lightsInfo.range = vram.lights->size();
+
+                vk::WriteDescriptorSet lightsWrite = {};
+                lightsWrite.dstBinding = 7;
+                lightsWrite.dstArrayElement = 0;
+                lightsWrite.descriptorType = vk::DescriptorType::eStorageBuffer;
+                lightsWrite.descriptorCount = 1;
+                lightsWrite.dstSet = rayDescriptorSet->raw();
+                lightsWrite.setPBufferInfo(&lightsInfo);
+
+                writes.push_back(lightsWrite);
 
                 std::vector<vk::DescriptorImageInfo> imageInfos;
                 imageInfos.reserve(vram.diffuse.size());
