@@ -19,6 +19,7 @@ layout(binding = 6, set = 0, scalar) buffer Materials { Material m; } materials[
 float shadowBias = 0.0001f;
 float pi = 3.14159265f;
 float albedo = 0.18f;
+float specularPower = 35;
 
 #include "shootRay.glsl"
 
@@ -66,17 +67,23 @@ void main()
     Vertex v1 = vertices[nonuniformEXT(gl_InstanceCustomIndexEXT)].v[index.y];
     Vertex v2 = vertices[nonuniformEXT(gl_InstanceCustomIndexEXT)].v[index.z];
 
+    // Ray direction
+    vec3 rayDir = -normalize(gl_WorldRayDirectionEXT);
+
     // Interpolated vertex
     Vertex v = barycentricVertex(v0, v1, v2);
 
     // Sample texture
     vec3 texColor = texture(texSamplers[nonuniformEXT(gl_InstanceCustomIndexEXT)], v.texCoord).xyz;
 
+    // Sample material
+    Material mat = materials[nonuniformEXT(gl_InstanceCustomIndexEXT)].m;
+
     // Light
     PointLight light;
     light.pos = vec3(-4.0f, 5.0f, -2.0f);
     light.color = vec3(0.0f, 0.0f, 1.0f);
-    light.intensity = 3000.0f;
+    light.intensity = 6000.0f;
 
     PointLight light1;
     light1.pos = vec3(4.0f, 5.0f, 3.0f);
@@ -91,6 +98,9 @@ void main()
     const int lightsNum = 3;
     PointLight lights[lightsNum] = { light, light1, light2 };
 
+    // Phong
+    vec3 diffuse = vec3(0.0f);
+    vec3 specular = vec3(0.0f);
     for (int i = 0; i < lightsNum; i++) {
         vec3  lightDir;
         vec3  lightIntensity;
@@ -101,8 +111,13 @@ void main()
 
         float shadowness = shadowRay(v.pos, shadowBias, L, lightDistance);
 
-        hitValue.color += shadowness * albedo / pi * lightIntensity * max(0.0f, dot(v.normal, L));
+        diffuse += shadowness * albedo / pi * lightIntensity * max(0.0f, dot(v.normal, L));
+
+        vec3 R = reflect(lightDir, v.normal);
+
+        specular += shadowness * lightIntensity * pow(max(0.0f, dot(R, rayDir)), specularPower);
     }
+    hitValue.color = diffuse * mat.diffuse + specular * mat.specular;
 
 //    vec3 lightComputed = vec3(max(dot(v.normal, lightVector), 0.2));
 
