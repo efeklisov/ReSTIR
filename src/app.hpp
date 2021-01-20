@@ -836,39 +836,52 @@ class App {
 
         void updateUnibuffer() {
             const float aspect = static_cast<float>(swapChain->extent().width) / static_cast<float>(swapChain->extent().height);
+            const float cameraSpeed = 0.15f;
+            const float cameraRotateSpeed = 0.06f;
 
-            static glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 0.0f);
-            static const float cameraSpeed = 0.05f;
+            static float rotateYAngle = glm::pi<float>();
+            static float rotateZAngle = -glm::pi<float>() / 2;
 
-            if (glfwGetKey(window->raw(), GLFW_KEY_W) == GLFW_PRESS)
-                cameraPos += glm::vec3(0.0f, 0.0f, 1.0f) * cameraSpeed;
-            if (glfwGetKey(window->raw(), GLFW_KEY_S) == GLFW_PRESS)
-                cameraPos += glm::vec3(0.0f, 0.0f, -1.0f) * cameraSpeed;
-            if (glfwGetKey(window->raw(), GLFW_KEY_A) == GLFW_PRESS)
-                cameraPos += glm::vec3(1.0f, 0.0f, 0.0f) * cameraSpeed;
-            if (glfwGetKey(window->raw(), GLFW_KEY_D) == GLFW_PRESS)
-                cameraPos += glm::vec3(-1.0f, 0.0f, 0.0f) * cameraSpeed;
-            if (glfwGetKey(window->raw(), GLFW_KEY_SPACE) == GLFW_PRESS)
-                cameraPos += glm::vec3(0.0f, 1.0f, 0.0f) * cameraSpeed;
-            if (glfwGetKey(window->raw(), GLFW_KEY_BACKSPACE) == GLFW_PRESS)
-                cameraPos += glm::vec3(0.0f, -1.0f, 0.0f) * cameraSpeed;
+            static glm::vec3 cameraPos = glm::vec3(13.5f, -3.0f, 0.0f);
+            static glm::vec3 cameraForward = glm::vec3(0.0f, 0.0f, 1.0f);
+            static glm::vec3 cameraLeft = glm::vec3(1.0f, 0.0f, 0.0f);
+            static glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
 
             auto perspective = glm::perspective(glm::radians(60.0f), aspect, 0.1f, 512.0f);
-            auto translate = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 1.0f, -3.5f) + cameraPos);
-            auto rotate = glm::rotate(glm::mat4(1.0f), glm::pi<float>(), glm::vec3(0.0f, 0.0f, 1.0f));
-            auto rotateZ = glm::rotate(glm::mat4(1.0f), glm::pi<float>() / 2, glm::vec3(0.0f, 1.0f, 0.0f));
-            auto scale = glm::scale(glm::mat4(1.0f), glm::vec3(0.15f, 0.15f, 0.15f));
+            auto translate = glm::translate(glm::mat4(1.0f), cameraPos);
+            auto rotateY = glm::rotate(glm::mat4(1.0f), rotateYAngle, glm::vec3(0.0f, 0.0f, 1.0f));
+            auto rotateZ = glm::rotate(glm::mat4(1.0f), rotateZAngle, glm::vec3(0.0f, 1.0f, 0.0f));
 
             UniformData uniData {};
             uniData.projInverse = glm::inverse(perspective * glm::mat4(1.0f));
-            uniData.viewInverse = glm::inverse(translate * scale * rotate * rotateZ * glm::mat4(1.0f));
-            /* uniData.projInverse = camera->projI; */
-            /* uniData.viewInverse = camera->viewI; */
+            uniData.viewInverse = glm::inverse(rotateZ * rotateY * translate * glm::mat4(1.0f));
             uniData.frameIndex = globalFrameCount;
 
             auto data = unibuffer->map();
             memcpy(data, &uniData, sizeof(UniformData));
             unibuffer->unmap();
+
+            cameraForward = glm::normalize(glm::vec3(uniData.viewInverse[2]));
+            cameraLeft = glm::normalize(glm::vec3(uniData.viewInverse[0]));
+            cameraUp = glm::normalize(glm::vec3(uniData.viewInverse[1]));
+
+            if (glfwGetKey(window->raw(), GLFW_KEY_W) == GLFW_PRESS)
+                cameraPos += cameraForward * cameraSpeed;
+            if (glfwGetKey(window->raw(), GLFW_KEY_S) == GLFW_PRESS)
+                cameraPos += cameraForward * -cameraSpeed;
+            if (glfwGetKey(window->raw(), GLFW_KEY_A) == GLFW_PRESS)
+                cameraPos += cameraLeft * cameraSpeed;
+            if (glfwGetKey(window->raw(), GLFW_KEY_D) == GLFW_PRESS)
+                cameraPos += cameraLeft * -cameraSpeed;
+            if (glfwGetKey(window->raw(), GLFW_KEY_SPACE) == GLFW_PRESS)
+                cameraPos += cameraUp * cameraSpeed;
+            if (glfwGetKey(window->raw(), GLFW_KEY_BACKSPACE) == GLFW_PRESS)
+                cameraPos += cameraUp * -cameraSpeed;
+
+            if (glfwGetKey(window->raw(), GLFW_KEY_Q) == GLFW_PRESS)
+                rotateZAngle += -cameraRotateSpeed;
+            if (glfwGetKey(window->raw(), GLFW_KEY_E) == GLFW_PRESS)
+                rotateZAngle += cameraRotateSpeed;
         }
 
         uint32_t currentFrame = 0;
@@ -882,8 +895,6 @@ class App {
 
             startTime = currentTime;
 
-            /* camera->processInput(); */
-            /* camera->update(deltaTime); */
             updateUnibuffer();
 
             uint32_t imageIndex;

@@ -81,8 +81,7 @@ void main()
     Material mat = materials[nonuniformEXT(gl_InstanceCustomIndexEXT)].m;
 
     // Light
-    const int lightsNum = 3;
-    PointLight lights[lightsNum] = { lights.l[0], lights.l[1], lights.l[2] };
+    const int lightsNum = 4;
 
     // Phong
     vec3 diffuse = vec3(0.0f);
@@ -91,7 +90,7 @@ void main()
         vec3  lightDir;
         vec3  lightIntensity;
         float lightDistance;
-        getLightInfo(lights[i], v.pos, lightDir, lightIntensity, lightDistance);
+        getLightInfo(lights.l[i], v.pos, lightDir, lightIntensity, lightDistance);
 
         vec3 L = -lightDir;
 
@@ -137,7 +136,7 @@ void main()
 //    vec3 directColor = lightComputed * shadowness * (diffuse + specular);
 //
 //    // Indirect Result
-//	vec3 indirectColor = vec3(0.0, 0.0, 0.0);
+//    vec3 indirectColor = vec3(0.0, 0.0, 0.0);
 //
 //    uint N = 16;
 //	for (uint i = 0; i < N; i++) {
@@ -148,5 +147,5 @@ void main()
 //    }
 //    indirectColor /= N;
 //
-//    hitValue.color = directColor + indirectColor + mat.emissive;
+//    hitValue.color += indirectColor;
 }
