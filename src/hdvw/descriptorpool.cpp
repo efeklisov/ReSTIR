@@ -47,17 +47,13 @@ std::vector<DescriptorSet> DescriptorPool_t::allocate(uint32_t count, Descriptor
     sets.reserve(layouts.size());
 
     for (auto& set: _device.allocateDescriptorSets(ai)) {
-        sets.push_back(DescriptorSet_t::conjure({
+        sets.push_back(hd::conjure({
                     .set = set,
                     .device = _device,
                     }));
     }
 
     return sets;
-}
-
-vk::DescriptorPool DescriptorPool_t::raw() {
-    return _pool;
 }
 
 DescriptorPool_t::~DescriptorPool_t() {

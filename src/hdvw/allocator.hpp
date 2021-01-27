@@ -60,8 +60,14 @@ namespace hd {
 
             void free(const VmaAllocation);
 
-            VmaAllocator& raw();
+            inline auto raw() {
+                return _allocator;
+            }
 
             ~Allocator_t();
     };
+
+    inline Allocator conjure(AllocatorCreateInfo ci) {
+        return Allocator_t::conjure(ci);
+    }
 }

@@ -6,10 +6,8 @@
 #include <glm/glm.hpp>
 
 #include <external/vk_mem_alloc.h>
-#include <external/rapidjson/document.h>
 
 #include <iostream>
-#include <fstream>
 #include <sstream>
 #include <vector>
 #include <chrono>
@@ -57,12 +55,6 @@ struct UniformData {
     uint32_t frameIndex;
 };
 
-struct LightData {
-    glm::vec3 pos;
-    glm::vec3 color;
-    float intensity;
-};
-
 class App {
     private:
         bool framebufferResized = false;
@@ -82,19 +74,17 @@ class App {
 
         hd::Model scene;
 
-        /* hd::Camera camera; */
-
         struct vram {
             using vram_vertices = hd::DataBuffer<hd::Vertex>;
-            using vram_indices = hd::DataBuffer<uint32_t>;
-            using vram_texture = hd::Texture;
+            using vram_indices  = hd::DataBuffer<uint32_t>;
+            using vram_texture  = hd::Texture;
             using vram_material = hd::DataBuffer<hd::Material>;
 
             std::vector<vram_vertices> vertices;
-            std::vector<vram_indices> indices;
-            std::vector<vram_texture> diffuse;
+            std::vector<vram_indices>  indices;
+            std::vector<vram_texture>  diffuse;
             std::vector<vram_material> materials;
-            hd::DataBuffer<LightData> lights;
+            hd::DataBuffer<hd::Light>  lights;
 
             std::vector<hd::BLAS> blases;
             hd::TLAS tlas;
@@ -106,24 +96,19 @@ class App {
         hd::SBT sbt;
 
         void init() {
-            window = hd::Window_t::conjure({
+            window = hd::conjure({
                     .width = 1280,
                     .height = 720,
                     .title = "Ray traycing",
                     .cursorVisible = true,
                     .windowUser = this,
                     .framebufferSizeCallback = framebufferResizeCallback,
-                    /* .cursorPosCallback = mousePositionCallback, */
                     });
-
-            /* camera = hd::Camera_t::conjure({ */
-            /*         .window = window, */
-            /*         }); */
 
             auto instanceExtensions = window->getRequiredExtensions();
             instanceExtensions.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
 
-            instance = hd::Instance_t::conjure({
+            instance = hd::conjure({
                     .applicationName = "Raytraycing",
                     .applicationVersion = VK_MAKE_VERSION(1, 0, 0),
                     .engineName = "Hova's Engine",
@@ -133,19 +118,13 @@ class App {
                     .extensions = instanceExtensions,
                     });
 
-            surface = hd::Surface_t::conjure({
+            surface = hd::conjure({
                     .window = window,
                     .instance = instance,
                     });
 
             vk::PhysicalDeviceFeatures feats{};
             feats.samplerAnisotropy = true;
-
-            /* vk::PhysicalDeviceVulkan12Features feats12{}; */
-            /* feats12.bufferDeviceAddress = true; */
-            /* feats12.runtimeDescriptorArray = true; */
-            /* feats12.shaderSampledImageArrayNonUniformIndexing = true; */
-            /* feats12.shaderStorageBufferArrayNonUniformIndexing = true; */
 
             vk::PhysicalDeviceDescriptorIndexingFeatures desc_feats{};
             desc_feats.runtimeDescriptorArray = true;
@@ -168,7 +147,7 @@ class App {
             all_feats.features = feats;
             all_feats.pNext = &buffer_feats;
 
-            device = hd::Device_t::conjure({
+            device = hd::conjure({
                     .instance = instance,
                     .surface = surface,
                     .extensions = { 
@@ -187,22 +166,22 @@ class App {
                     .validationLayers = { "VK_LAYER_KHRONOS_validation" },
                     });
 
-            allocator = hd::Allocator_t::conjure({
+            allocator = hd::conjure({
                     .instance = instance,
                     .device = device,
                     });
 
-            graphicsQueue = hd::Queue_t::conjure({
+            graphicsQueue = hd::conjure({
                     .device = device,
                     .type = hd::QueueType::eGraphics,
                     });
 
-            presentQueue = hd::Queue_t::conjure({
+            presentQueue = hd::conjure({
                     .device = device,
                     .type = hd::QueueType::ePresent,
                     });
 
-            graphicsPool = hd::CommandPool_t::conjure({
+            graphicsPool = hd::conjure({
                     .device = device,
                     .family = hd::PoolFamily::eGraphics,
                     });
@@ -217,10 +196,10 @@ class App {
                 inFlightFences[iter] = hd::Fence_t::conjure({.device = device});
             }
 
-            scene = hd::Model_t::conjure({
+            scene = hd::conjure({
                     "models/scene.obj",
                     [&](const char *filename){
-                        return hd::Texture_t::conjure({
+                        return hd::conjure({
                                 filename,
                                 graphicsPool,
                                 graphicsQueue,
@@ -229,60 +208,7 @@ class App {
                                 }); },
                     });
             
-            std::vector<LightData> lights;
-            { // START Process JSON
-                std::ifstream file("models/scene.json", std::ios_base::in);
-                assert(!file.fail());
-
-                std::stringstream fileStr;
-                fileStr << file.rdbuf();
-                file.close();
-
-                rapidjson::Document sceneJSON;
-                sceneJSON.Parse(fileStr.str().c_str());
-                fileStr.clear();
-
-                assert(sceneJSON.IsObject());
-
-                const auto& lightsValue = sceneJSON["Lights"];
-                assert(lightsValue.IsArray());
-
-                lights.reserve(lightsValue.Size());
-                for (const auto& lightInfo : lightsValue.GetArray()) {
-                    assert(lightInfo.IsObject());
-
-                    const auto& posInfo = lightInfo["pos"];
-                    assert(posInfo.IsArray());
-                    assert(posInfo.Size() == 3);
-
-                    glm::vec3 pos(0.0f);
-                    for (rapidjson::SizeType i = 0; i < posInfo.Size(); i++) {
-                        assert(posInfo[i].IsFloat());
-                        pos[i] = posInfo[i].GetFloat();
-                    }
-
-                    const auto& colorInfo = lightInfo["color"];
-                    assert(colorInfo.IsArray());
-                    assert(colorInfo.Size() == 3);
-
-                    glm::vec3 color(0.0f);
-                    for (rapidjson::SizeType i = 0; i < colorInfo.Size(); i++) {
-                        assert(colorInfo[i].IsFloat());
-                        color[i] = colorInfo[i].GetFloat();
-                    }
-
-                    const auto& intensityInfo = lightInfo["intensity"];
-                    assert(intensityInfo.IsFloat());
-
-                    float intensity = intensityInfo.GetFloat();
-
-                    lights.push_back({
-                            .pos = pos,
-                            .color = color,
-                            .intensity = intensity,
-                            });
-                }
-            } // END Process JSON
+            auto lights = hd::Model_t::parseLights("models/scene.json");
 
             vram.vertices.reserve(scene->meshes.size());
             vram.indices.reserve(scene->meshes.size());
@@ -307,7 +233,7 @@ class App {
             instanceInfo.setFlags(vk::GeometryInstanceFlagBitsKHR::eTriangleFacingCullDisable);
 
             for (uint32_t iter = 0; iter < scene->meshes.size(); iter++) {
-                vram.vertices.push_back(hd::DataBuffer_t<hd::Vertex>::conjure({
+                vram.vertices.push_back(hd::conjure<hd::Vertex>({
                         .commandPool = graphicsPool,
                         .queue = graphicsQueue,
                         .allocator = allocator,
@@ -316,7 +242,7 @@ class App {
                         .usage = vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eStorageBuffer,
                         }));
 
-                vram.indices.push_back(hd::DataBuffer_t<uint32_t>::conjure({
+                vram.indices.push_back(hd::conjure<uint32_t>({
                         .commandPool = graphicsPool,
                         .queue = graphicsQueue,
                         .allocator = allocator,
@@ -327,7 +253,7 @@ class App {
 
                 vram.diffuse.push_back(scene->meshes[iter].diffuse[0]);
 
-                vram.materials.push_back(hd::DataBuffer_t<hd::Material>::conjure({
+                vram.materials.push_back(hd::conjure<hd::Material>({
                         .commandPool = graphicsPool,
                         .queue = graphicsQueue,
                         .allocator = allocator,
@@ -336,7 +262,7 @@ class App {
                         .usage = vk::BufferUsageFlagBits::eStorageBuffer,
                         }));
 
-                vram.blases.push_back(hd::BLAS_t::conjure({
+                vram.blases.push_back(hd::conjure({
                         vram.vertices[iter],
                         vram.indices[iter],
                         graphicsPool,
@@ -350,7 +276,7 @@ class App {
                 instances.push_back(instanceInfo);
             }
 
-            vram.lights = hd::DataBuffer_t<LightData>::conjure({
+            vram.lights = hd::conjure<hd::Light>({
                     .commandPool = graphicsPool,
                     .queue = graphicsQueue,
                     .allocator = allocator,
@@ -359,7 +285,7 @@ class App {
                     .usage = vk::BufferUsageFlagBits::eStorageBuffer,
                     });
 
-            auto instbuffer = hd::DataBuffer_t<vk::AccelerationStructureInstanceKHR>::conjure({
+            auto instbuffer = hd::conjure<vk::AccelerationStructureInstanceKHR>({
                     .commandPool = graphicsPool,
                     .queue = graphicsQueue,
                     .allocator = allocator,
@@ -369,7 +295,7 @@ class App {
                     .memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU,
                     });
 
-            vram.tlas = hd::TLAS_t::conjure({
+            vram.tlas = hd::conjure({
                     instbuffer,
                     graphicsPool,
                     graphicsQueue,
@@ -427,7 +353,7 @@ class App {
             lightsBinding.descriptorCount = 1;
             lightsBinding.stageFlags = vk::ShaderStageFlagBits::eClosestHitKHR;
 
-            rayLayout = hd::DescriptorLayout_t::conjure({
+            rayLayout = hd::conjure({
                     .device = device,
                     .bindings = { 
                             aStructLayoutBinding, resImageLayoutBinding, uniBufferBinding, 
@@ -436,30 +362,30 @@ class App {
                         },
                     });
 
-            rayPipeLayout = hd::PipelineLayout_t::conjure({
+            rayPipeLayout = hd::conjure({
                     .device = device,
                     .descriptorLayouts = { rayLayout->raw() },
                     });
 
-            hd::Shader raygenShader = hd::Shader_t::conjure({
+            hd::Shader raygenShader = hd::conjure({
                     .device = device,
                     .filename = "shaders/raygen.rgen.spv",
                     .stage = vk::ShaderStageFlagBits::eRaygenKHR,
                     });
 
-            hd::Shader missShader = hd::Shader_t::conjure({
+            hd::Shader missShader = hd::conjure({
                     .device = device,
                     .filename = "shaders/miss.rmiss.spv",
                     .stage = vk::ShaderStageFlagBits::eMissKHR,
                     });
 
-            hd::Shader shadowShader = hd::Shader_t::conjure({
+            hd::Shader shadowShader = hd::conjure({
                     .device = device,
                     .filename = "shaders/shadow.rmiss.spv",
                     .stage = vk::ShaderStageFlagBits::eMissKHR,
                     });
 
-            hd::Shader closestHitShader = hd::Shader_t::conjure({
+            hd::Shader closestHitShader = hd::conjure({
                     .device = device,
                     .filename = "shaders/closesthit.rchit.spv",
                     .stage = vk::ShaderStageFlagBits::eClosestHitKHR,
@@ -493,14 +419,14 @@ class App {
             closesthitGroupCI.anyHitShader = VK_SHADER_UNUSED_KHR;
             closesthitGroupCI.intersectionShader = VK_SHADER_UNUSED_KHR;
 
-            rayPipeline = hd::RaytraycingPipeline_t::conjure({
+            rayPipeline = hd::conjure({
                     .pipelineLayout = rayPipeLayout,
                     .device = device,
                     .shaderInfos = { raygenShader->info(), missShader->info(), shadowShader->info(), closestHitShader->info() },
                     .shaderGroups = { raygenGroupCI, missGroupCI, shadowGroupCI, closesthitGroupCI },
                     });
 
-            sbt = hd::SBT_t::conjure({
+            sbt = hd::conjure({
                     .pipeline = rayPipeline,
                     .device = device,
                     .allocator = allocator,
@@ -511,10 +437,12 @@ class App {
         }
 
         hd::SwapChain swapChain;
+
         struct storage {
             hd::Image image;
             hd::ImageView view;
         } storage;
+
         hd::DataBuffer<UniformData> unibuffer;
         hd::DescriptorPool rayDescriptorPool;
         hd::DescriptorSet rayDescriptorSet;
@@ -524,7 +452,7 @@ class App {
         uint32_t globalFrameCount = 0;
 
         void setup() {
-            swapChain = hd::SwapChain_t::conjure(hd::SwapChainCreateInfo{
+            swapChain = hd::conjure(hd::SwapChainCreateInfo{
                     .window = window,
                     .surface = surface,
                     .allocator = allocator,
@@ -532,7 +460,7 @@ class App {
                     .presentMode = vk::PresentModeKHR::eMailbox,
                     });
 
-            storage.image = hd::Image_t::conjure({
+            storage.image = hd::conjure({
                     .allocator = allocator,
                     .extent = swapChain->extent(),
                     .format = swapChain->format(),
@@ -549,7 +477,7 @@ class App {
                 graphicsPool->singleTimeEnd(cmd, graphicsQueue);
             }
 
-            storage.view = hd::ImageView_t::conjure({
+            storage.view = hd::conjure({
                     .image = storage.image->raw(),
                     .device = device,
                     .format = storage.image->format(),
@@ -557,21 +485,9 @@ class App {
                     .type = vk::ImageViewType::e2D,
                     });
 
-            const float aspect = static_cast<float>(swapChain->extent().width) / static_cast<float>(swapChain->extent().height);
-
-            auto perspective = glm::perspective(glm::radians(60.0f), aspect, 0.1f, 512.0f);
-            auto translate = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 1.0f, -3.5f));
-            auto rotate = glm::rotate(glm::mat4(1.0f), glm::pi<float>(), glm::vec3(0.0f, 0.0f, 1.0f));
-            auto scale = glm::scale(glm::mat4(1.0f), glm::vec3(0.15f, 0.15f, 0.15f));
-
             UniformData uniData {};
-            uniData.projInverse = glm::inverse(perspective * glm::mat4(1.0f));
-            uniData.viewInverse = glm::inverse(translate * scale * rotate * glm::mat4(1.0f));
-            /* uniData.projInverse = camera->projI; */
-            /* uniData.viewInverse = camera->viewI; */
-            uniData.frameIndex = globalFrameCount;
 
-            unibuffer = hd::DataBuffer_t<UniformData>::conjure({
+            unibuffer = hd::conjure<UniformData>({
                     .commandPool = graphicsPool,
                     .queue = graphicsQueue,
                     .allocator = allocator,
@@ -581,7 +497,7 @@ class App {
                     .memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU,
                     });
 
-            rayDescriptorPool = hd::DescriptorPool_t::conjure({
+            rayDescriptorPool = hd::conjure({
                     .device = device,
                     .layouts = {{rayLayout, 1}},
                     .instances = 1,
@@ -593,140 +509,67 @@ class App {
                 std::vector<vk::WriteDescriptorSet> writes;
                 writes.reserve(4 + vram.vertices.size());
 
-                auto topLevelAStruct = vram.tlas->raw();
-                vk::WriteDescriptorSetAccelerationStructureKHR aStructDI{};
-                aStructDI.setAccelerationStructures(topLevelAStruct);
+                auto write = [&](uint32_t binding, vk::DescriptorType type, uint32_t index = 0) {
+                    vk::WriteDescriptorSet writeSet{};
+                    writeSet.dstBinding = binding;
+                    writeSet.dstArrayElement = index;
+                    writeSet.descriptorType = type;
+                    writeSet.descriptorCount = 1;
+                    writeSet.dstSet = rayDescriptorSet->raw();
 
-                vk::WriteDescriptorSet aStuctWrite{};
-                aStuctWrite.pNext = &aStructDI;
-                aStuctWrite.dstSet = rayDescriptorSet->raw();
-                aStuctWrite.dstBinding = 0;
-                aStuctWrite.descriptorCount = 1;
-                aStuctWrite.descriptorType = vk::DescriptorType::eAccelerationStructureKHR;
+                    return writeSet;
+                };
 
-                writes.push_back(aStuctWrite);
+                auto aStructDI = vram.tlas->writeInfo();
+                auto aStructWrite = write(0, vk::DescriptorType::eAccelerationStructureKHR);
+                aStructWrite.setPNext(&aStructDI);
+                writes.push_back(aStructWrite);
 
-                vk::DescriptorImageInfo storageImageInfo{};
-                storageImageInfo.imageView = storage.view->raw();
-                storageImageInfo.imageLayout = vk::ImageLayout::eGeneral;
-
-                vk::WriteDescriptorSet storageImageWrite{};
-                storageImageWrite.dstBinding = 1;
-                storageImageWrite.dstArrayElement = 0;
-                storageImageWrite.descriptorType = vk::DescriptorType::eStorageImage;
-                storageImageWrite.descriptorCount = 1;
-                storageImageWrite.dstSet = rayDescriptorSet->raw();
+                auto storageImageInfo = storage.view->writeInfo(vk::ImageLayout::eGeneral);
+                auto storageImageWrite = write(1, vk::DescriptorType::eStorageImage);
                 storageImageWrite.setPImageInfo(&storageImageInfo);
-
                 writes.push_back(storageImageWrite);
 
-                vk::DescriptorBufferInfo unibufferInfo{};
-                unibufferInfo.buffer = unibuffer->raw();
-                unibufferInfo.offset = 0;
-                unibufferInfo.range = sizeof(UniformData);
-
-                vk::WriteDescriptorSet unibufferWrite = {};
-                unibufferWrite.dstBinding = 2;
-                unibufferWrite.dstArrayElement = 0;
-                unibufferWrite.descriptorType = vk::DescriptorType::eUniformBuffer;
-                unibufferWrite.descriptorCount = 1;
-                unibufferWrite.dstSet = rayDescriptorSet->raw();
+                auto unibufferInfo = unibuffer->writeInfo();
+                auto unibufferWrite = write(2, vk::DescriptorType::eUniformBuffer);
                 unibufferWrite.setPBufferInfo(&unibufferInfo);
-
                 writes.push_back(unibufferWrite);
 
-                vk::DescriptorBufferInfo lightsInfo{};
-                lightsInfo.buffer = vram.lights->raw();
-                lightsInfo.offset = 0;
-                lightsInfo.range = vram.lights->size();
-
-                vk::WriteDescriptorSet lightsWrite = {};
-                lightsWrite.dstBinding = 7;
-                lightsWrite.dstArrayElement = 0;
-                lightsWrite.descriptorType = vk::DescriptorType::eStorageBuffer;
-                lightsWrite.descriptorCount = 1;
-                lightsWrite.dstSet = rayDescriptorSet->raw();
+                auto lightsInfo = vram.lights->writeInfo();
+                auto lightsWrite = write(7, vk::DescriptorType::eStorageBuffer);
                 lightsWrite.setPBufferInfo(&lightsInfo);
-
                 writes.push_back(lightsWrite);
 
-                std::vector<vk::DescriptorImageInfo> imageInfos;
-                imageInfos.reserve(vram.diffuse.size());
-                std::vector<vk::DescriptorBufferInfo> vertexInfos;
-                vertexInfos.reserve(vram.vertices.size());
-                std::vector<vk::DescriptorBufferInfo> indexInfos;
-                indexInfos.reserve(vram.indices.size());
-                std::vector<vk::DescriptorBufferInfo> materialInfos;
-                materialInfos.reserve(vram.materials.size());
+                std::vector<vk::DescriptorImageInfo>  imgInfos;
+                std::vector<vk::DescriptorBufferInfo> vtxInfos;
+                std::vector<vk::DescriptorBufferInfo> idxInfos;
+                std::vector<vk::DescriptorBufferInfo> matInfos;
+
+                imgInfos.reserve(vram.diffuse.size());
+                vtxInfos.reserve(vram.vertices.size());
+                idxInfos.reserve(vram.indices.size());
+                matInfos.reserve(vram.materials.size());
 
                 for (uint32_t iter = 0; iter < vram.vertices.size(); iter++) {
-                    vk::DescriptorImageInfo textureInfo{};
-                    textureInfo.imageView = vram.diffuse[iter]->view();
-                    textureInfo.sampler = vram.diffuse[iter]->sampler();
-                    textureInfo.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+                    imgInfos.push_back(vram.diffuse[iter]->writeInfo(vk::ImageLayout::eShaderReadOnlyOptimal));
+                    auto imgWrite = write(3, vk::DescriptorType::eCombinedImageSampler, iter);
+                    imgWrite.setPImageInfo(&imgInfos[iter]);
+                    writes.push_back(imgWrite);
 
-                    imageInfos.push_back(textureInfo);
+                    vtxInfos.push_back(vram.vertices[iter]->writeInfo());
+                    auto vtxBufferWrite = write(4, vk::DescriptorType::eStorageBuffer, iter);
+                    vtxBufferWrite.setPBufferInfo(&vtxInfos[iter]);
+                    writes.push_back(vtxBufferWrite);
 
-                    vk::WriteDescriptorSet textureWrite{};
-                    textureWrite.dstBinding = 3;
-                    textureWrite.dstArrayElement = iter;
-                    textureWrite.descriptorType = vk::DescriptorType::eCombinedImageSampler;
-                    textureWrite.descriptorCount = 1;
-                    textureWrite.dstSet = rayDescriptorSet->raw();
-                    textureWrite.setPImageInfo(&imageInfos[iter]);
+                    idxInfos.push_back(vram.indices[iter]->writeInfo());
+                    auto idxBufferWrite = write(5, vk::DescriptorType::eStorageBuffer, iter);
+                    idxBufferWrite.setPBufferInfo(&idxInfos[iter]);
+                    writes.push_back(idxBufferWrite);
 
-                    writes.push_back(textureWrite);
-
-                    vk::DescriptorBufferInfo vertexBufferInfo{};
-                    vertexBufferInfo.buffer = vram.vertices[iter]->raw();
-                    vertexBufferInfo.offset = 0;
-                    vertexBufferInfo.range = vram.vertices[iter]->size();
-
-                    vertexInfos.push_back(vertexBufferInfo);
-
-                    vk::WriteDescriptorSet vertexBufferWrite = {};
-                    vertexBufferWrite.dstBinding = 4;
-                    vertexBufferWrite.dstArrayElement = iter;
-                    vertexBufferWrite.descriptorType = vk::DescriptorType::eStorageBuffer;
-                    vertexBufferWrite.descriptorCount = 1;
-                    vertexBufferWrite.dstSet = rayDescriptorSet->raw();
-                    vertexBufferWrite.setPBufferInfo(&vertexInfos[iter]);
-
-                    writes.push_back(vertexBufferWrite);
-
-                    vk::DescriptorBufferInfo indexBufferInfo{};
-                    indexBufferInfo.buffer = vram.indices[iter]->raw();
-                    indexBufferInfo.offset = 0;
-                    indexBufferInfo.range = vram.indices[iter]->size();
-
-                    indexInfos.push_back(indexBufferInfo);
-
-                    vk::WriteDescriptorSet indexBufferWrite = {};
-                    indexBufferWrite.dstBinding = 5;
-                    indexBufferWrite.dstArrayElement = iter;
-                    indexBufferWrite.descriptorType = vk::DescriptorType::eStorageBuffer;
-                    indexBufferWrite.descriptorCount = 1;
-                    indexBufferWrite.dstSet = rayDescriptorSet->raw();
-                    indexBufferWrite.setPBufferInfo(&indexInfos[iter]);
-
-                    writes.push_back(indexBufferWrite);
-
-                    vk::DescriptorBufferInfo materialBufferInfo{};
-                    materialBufferInfo.buffer = vram.materials[iter]->raw();
-                    materialBufferInfo.offset = 0;
-                    materialBufferInfo.range = vram.materials[iter]->size();
-
-                    materialInfos.push_back(materialBufferInfo);
-
-                    vk::WriteDescriptorSet materialBufferWrite = {};
-                    materialBufferWrite.dstBinding = 6;
-                    materialBufferWrite.dstArrayElement = iter;
-                    materialBufferWrite.descriptorType = vk::DescriptorType::eStorageBuffer;
-                    materialBufferWrite.descriptorCount = 1;
-                    materialBufferWrite.dstSet = rayDescriptorSet->raw();
-                    materialBufferWrite.setPBufferInfo(&materialInfos[iter]);
-
-                    writes.push_back(materialBufferWrite);
+                    matInfos.push_back(vram.materials[iter]->writeInfo());
+                    auto matBufferWrite = write(6, vk::DescriptorType::eStorageBuffer, iter);
+                    matBufferWrite.setPBufferInfo(&matInfos[iter]);
+                    writes.push_back(matBufferWrite);
                 }
 
                 device->raw().updateDescriptorSets(writes, nullptr);
@@ -739,27 +582,12 @@ class App {
                 rayCmdBuffers[i]->raw().bindPipeline(vk::PipelineBindPoint::eRayTracingKHR, rayPipeline->raw());
                 rayCmdBuffers[i]->raw().bindDescriptorSets(vk::PipelineBindPoint::eRayTracingKHR, rayPipeLayout->raw(), 0, rayDescriptorSet->raw(), nullptr);
 
-                vk::StridedDeviceAddressRegionKHR raygenShaderSBTEntry{};
-                raygenShaderSBTEntry.deviceAddress = sbt->raygen().address;
-                raygenShaderSBTEntry.stride = device->_rayTracingProperties.shaderGroupHandleSize;
-                raygenShaderSBTEntry.size = device->_rayTracingProperties.shaderGroupHandleSize * sbt->raygen().count;
-
-                vk::StridedDeviceAddressRegionKHR missShaderSBTEntry{};
-                missShaderSBTEntry.deviceAddress = sbt->miss().address;
-                missShaderSBTEntry.stride = device->_rayTracingProperties.shaderGroupHandleSize;
-                missShaderSBTEntry.size = device->_rayTracingProperties.shaderGroupHandleSize * sbt->miss().count;
-
-                vk::StridedDeviceAddressRegionKHR hitShaderSBTEntry{};
-                hitShaderSBTEntry.deviceAddress = sbt->hit().address;
-                hitShaderSBTEntry.stride = device->_rayTracingProperties.shaderGroupHandleSize;
-                hitShaderSBTEntry.size = device->_rayTracingProperties.shaderGroupHandleSize * sbt->hit().count;
-
                 vk::StridedDeviceAddressRegionKHR callableShaderSBTEntry{};
 
                 rayCmdBuffers[i]->raw().traceRaysKHR(
-                        raygenShaderSBTEntry,
-                        missShaderSBTEntry,
-                        hitShaderSBTEntry,
+                        sbt->raygen().region,
+                        sbt->miss().region,
+                        sbt->hit().region,
                         callableShaderSBTEntry,
                         swapChain->extent().width,
                         swapChain->extent().height,
@@ -964,11 +792,6 @@ class App {
             auto app = reinterpret_cast<App*>(glfwGetWindowUserPointer(window));
             app->framebufferResized = true;
         }
-
-        /* static void mousePositionCallback(GLFWwindow* window, double xpos, double ypos) { */
-        /*     auto app = reinterpret_cast<App*>(glfwGetWindowUserPointer(window)); */
-        /*     app->camera->processMouse(xpos, ypos); */
-        /* } */
 
     public:
         void run() {

@@ -99,10 +99,6 @@ void Allocator_t::free(const VmaAllocation allocation) {
     vmaFreeMemory(_allocator, allocation);
 }
 
-VmaAllocator& Allocator_t::raw() {
-    return _allocator;
-}
-
 Allocator_t::~Allocator_t() {
     vmaDestroyAllocator(_allocator);
 }

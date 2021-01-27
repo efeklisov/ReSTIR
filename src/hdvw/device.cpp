@@ -175,28 +175,12 @@ void Device_t::waitIdle() {
     _device.waitIdle();
 }
 
-vk::PhysicalDevice Device_t::physical() {
-    return _physicalDevice;
-}
-
 vk::ResultValue<uint32_t> Device_t::acquireNextImage(vk::SwapchainKHR swapChain, vk::Semaphore semaphore) {
     return _device.acquireNextImageKHR(swapChain, UINT64_MAX, semaphore, nullptr);
 }
 
-vk::Device Device_t::raw() {
-    return _device;
-}
-
-QueueFamilyIndices Device_t::indices() {
-    return _indices;
-}
-
 void Device_t::updateSurfaceInfo() {
     _swapChainSupport.capabilities = _physicalDevice.getSurfaceCapabilitiesKHR(_surface);
-}
-
-SwapChainSupportDetails Device_t::swapChainSupport() {
-    return _swapChainSupport;
 }
 
 vk::DeviceAddress Device_t::getBufferDeviceAddress(vk::BufferDeviceAddressInfo& bi) {

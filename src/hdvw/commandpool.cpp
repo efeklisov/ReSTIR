@@ -35,7 +35,7 @@ std::vector<CommandBuffer> CommandPool_t::allocate(uint32_t count, vk::CommandBu
     buffers.reserve(count);
 
     for (auto& buf: _device.allocateCommandBuffers(ai)) {
-        buffers.push_back(CommandBuffer_t::conjure({
+        buffers.push_back(hd::conjure({
                     .commandBuffer = buf,
                     .commandPool = _commandPool,
                     .device = _device,
@@ -61,10 +61,6 @@ void CommandPool_t::singleTimeEnd(CommandBuffer buffer, Queue queue) {
     si.pCommandBuffers = &raw;
     queue->submit(si, nullptr);
     queue->waitIdle();
-}
-
-vk::CommandPool CommandPool_t::raw() {
-    return _commandPool;
 }
 
 CommandPool_t::~CommandPool_t() {

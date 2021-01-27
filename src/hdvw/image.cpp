@@ -32,32 +32,8 @@ Image_t::Image_t(ImageCreateInfo ci) {
     _imageMemory = result.allocation;
 }
 
-vk::Extent2D Image_t::extent() {
-    return _imageSize;
-}
-
-vk::ImageLayout Image_t::layout() {
-    return _layout;
-}
-
 void Image_t::setLayout(vk::ImageLayout layout) {
     _layout = layout;
-}
-
-vk::ImageSubresourceRange Image_t::range() {
-    return _range;
-}
-
-vk::Format Image_t::format() {
-    return _format;
-}
-
-VmaAllocation Image_t::memory() {
-    return _imageMemory;
-}
-
-vk::Image Image_t::raw() {
-    return _image;
 }
 
 Image_t::~Image_t() {
@@ -74,10 +50,6 @@ ImageView_t::ImageView_t(ImageViewCreateInfo ci) {
     ivci.subresourceRange = ci.range;
 
     _view = _device.createImageView(ivci);
-}
-
-vk::ImageView ImageView_t::raw() {
-    return _view;
 }
 
 ImageView_t::~ImageView_t() {
@@ -102,10 +74,6 @@ Sampler_t::Sampler_t(SamplerCreateInfo ci) {
     si.mipmapMode = vk::SamplerMipmapMode::eLinear;
 
     _sampler = _device.createSampler(si);
-}
-
-vk::Sampler Sampler_t::raw() {
-    return _sampler;
 }
 
 Sampler_t::~Sampler_t() {

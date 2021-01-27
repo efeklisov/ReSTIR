@@ -26,6 +26,12 @@ namespace hd {
         int diffuseMapCount;
     };
 
+    struct Light {
+        glm::vec3 pos;
+        glm::vec3 color;
+        float intensity;
+    };
+
     struct Mesh {
         std::vector<Vertex> vertices;
         std::vector<uint32_t> indices;
@@ -56,6 +62,12 @@ namespace hd {
                 return std::make_shared<Model_t>(ci);
             }
 
+            static std::vector<Light> parseLights(std::string_view filename);
+
             Model_t(ModelCreateInfo ci);
     };
+
+    inline Model conjure(ModelCreateInfo ci) {
+        return Model_t::conjure(ci);
+    }
 }

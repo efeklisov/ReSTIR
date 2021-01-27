@@ -47,20 +47,32 @@ namespace hd {
 
             SwapChain_t(SwapChainCreateInfo ci);
 
-            vk::Format format();
+            inline auto format() {
+                return _format;
+            }
 
-            vk::Format depthFormat();
+            inline auto depthFormat() {
+                return _depthFormat;
+            }
 
             uint32_t length();
 
-            vk::Extent2D extent();
+            inline auto extent() {
+                return _extent;
+            }
 
             Attachment colorAttachment(uint32_t index);
 
             Attachment depthAttachment(uint32_t index);
 
-            vk::SwapchainKHR raw();
+            inline auto raw() {
+                return _swapChain;
+            }
 
             ~SwapChain_t();
     };
+
+    inline SwapChain conjure(SwapChainCreateInfo ci) {
+        return SwapChain_t::conjure(ci);
+    }
 }

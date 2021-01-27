@@ -30,18 +30,15 @@ vec3 CosineWeightedHemisphereSample(inout uint seed, Vertex v, out float cosThet
   return v.tangent * (r * cos(phi)) + v.bitangent * (r * sin(phi)) + v.normal * sqrt(1 - rand.x);
 }
 
-vec3 colorRay(vec3 origin, vec3 direction, uint seed, uint depth) {
+void colorRay(vec3 origin, vec3 direction, uint seed, uint depth) {
     if (depth >= 4)
-        return vec3(0.0f);
+        return;
 
 	float tmin = 0.001f;
 	float tmax = 10000.0f;
 
-    hitValue.color = vec3(0.0);
     hitValue.seed = seed;
     hitValue.depth = depth;
 
     traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT, 0xff, 0, 0, 0, origin, tmin, direction, tmax, 0);
-
-    return hitValue.color;
 }

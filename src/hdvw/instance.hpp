@@ -44,8 +44,14 @@ namespace hd {
 
             Instance_t(InstanceCreateInfo ci);
 
-            vk::Instance raw();
+            inline auto raw() {
+                return _instance;
+            }
 
             ~Instance_t();
     };
+
+    inline Instance conjure(InstanceCreateInfo ci) {
+        return Instance_t::conjure(ci);
+    }
 };

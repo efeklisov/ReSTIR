@@ -15,10 +15,6 @@ Framebuffer_t::Framebuffer_t(FramebufferCreateInfo ci) {
     _framebuffer = _device.createFramebuffer(framebufferInfo);
 }
 
-vk::Framebuffer Framebuffer_t::raw() {
-    return _framebuffer;
-}
-
 Framebuffer_t::~Framebuffer_t() {
     _device.destroy(_framebuffer);
 }

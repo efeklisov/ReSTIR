@@ -42,10 +42,16 @@ namespace hd {
 
             DefaultPipeline_t(DefaultPipelineCreateInfo ci);
 
-            vk::Pipeline raw();
+            inline vk::Pipeline raw() {
+                return _pipeline;
+            }
 
             ~DefaultPipeline_t();
     };
+
+    inline Pipeline conjure(DefaultPipelineCreateInfo ci) {
+        return DefaultPipeline_t::conjure(ci);
+    }
 
     struct RaytraycingPipelineCreateInfo {
         PipelineLayout pipelineLayout;
@@ -68,10 +74,18 @@ namespace hd {
 
             RaytraycingPipeline_t(RaytraycingPipelineCreateInfo ci);
 
-            vk::DeviceSize getGroupCount();
+            inline auto getGroupCount() {
+                return _groupCount;
+            }
 
-            vk::Pipeline raw();
+            inline vk::Pipeline raw() {
+                return _pipeline;
+            }
 
             ~RaytraycingPipeline_t();
     };
+
+    inline Pipeline conjure(RaytraycingPipelineCreateInfo ci) {
+        return RaytraycingPipeline_t::conjure(ci);
+    }
 }

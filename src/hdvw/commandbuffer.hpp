@@ -93,8 +93,14 @@ namespace hd {
 
             void endRenderPass(CommandBuffer buffer);
 
-            vk::CommandBuffer raw();
+            inline auto raw() {
+                return _buffer;
+            }
 
             ~CommandBuffer_t();
     };
+
+    inline CommandBuffer conjure(CommandBufferCreateInfo ci) {
+        return CommandBuffer_t::conjure(ci);
+    }
 }

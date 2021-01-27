@@ -43,8 +43,14 @@ namespace hd {
 
             void singleTimeEnd(CommandBuffer buffer, Queue queue);
 
-            vk::CommandPool raw();
+            inline auto raw() {
+                return _commandPool;
+            }
 
             ~CommandPool_t();
     };
+
+    inline CommandPool conjure(CommandPoolCreateInfo ci) {
+        return CommandPool_t::conjure(ci);
+    }
 }

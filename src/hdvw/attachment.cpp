@@ -5,7 +5,7 @@ Attachment_t::Attachment_t(AttachmentCreateInfo ci) {
     _device = ci.device->raw();
 
     if (ci.allocator != nullptr) {
-        _image = hd::Image_t::conjure({
+        _image = hd::conjure({
                 .allocator = ci.allocator,
                 .extent = ci.extent,
                 .format = ci.format,
@@ -15,7 +15,7 @@ Attachment_t::Attachment_t(AttachmentCreateInfo ci) {
                 });
         _imageHandle = _image->raw();
 
-        _view = ImageView_t::conjure({
+        _view = hd::conjure({
                 .image = _imageHandle,
                 .device = ci.device,
                 .format = ci.format,
@@ -32,7 +32,7 @@ Attachment_t::Attachment_t(AttachmentCreateInfo ci) {
         sr.baseArrayLayer = 0;
         sr.layerCount = 1;
 
-        _view = ImageView_t::conjure({
+        _view = hd::conjure({
                 .image = _imageHandle,
                 .device = ci.device,
                 .format = ci.format,
@@ -40,12 +40,4 @@ Attachment_t::Attachment_t(AttachmentCreateInfo ci) {
                 .type = vk::ImageViewType::e2D,
                 });
     }
-}
-
-vk::Image Attachment_t::raw() {
-    return _imageHandle;
-}
-
-vk::ImageView Attachment_t::view() {
-    return _view->raw();
 }

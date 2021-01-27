@@ -32,8 +32,14 @@ namespace hd {
 
             Shader_t(ShaderCreateInfo ci);
 
-            vk::PipelineShaderStageCreateInfo info();
+            inline auto info() {
+                return _shaderStageInfo;
+            }
 
             ~Shader_t();
     };
+
+    inline Shader conjure(ShaderCreateInfo ci) {
+        return Shader_t::conjure(ci);
+    }
 }

@@ -110,7 +110,7 @@ SwapChain_t::SwapChain_t(SwapChainCreateInfo ci) {
     _depthImages.reserve(images.size());
 
     for (auto& img: images) {
-        _colorImages.push_back(Attachment_t::conjure({
+        _colorImages.push_back(hd::conjure({
                     .image = img,
                     .device = ci.device,
                     .format = _format,
@@ -118,7 +118,7 @@ SwapChain_t::SwapChain_t(SwapChainCreateInfo ci) {
                     .aspect = vk::ImageAspectFlagBits::eColor,
                     }));
 
-        _depthImages.push_back(Attachment_t::conjure({
+        _depthImages.push_back(hd::conjure({
                     .device = ci.device,
                     .allocator = ci.allocator,
                     .format = _depthFormat,
@@ -129,20 +129,8 @@ SwapChain_t::SwapChain_t(SwapChainCreateInfo ci) {
     }
 }
 
-vk::Format SwapChain_t::format() {
-    return _format;
-}
-
-vk::Format SwapChain_t::depthFormat() {
-    return _depthFormat;
-}
-
 uint32_t SwapChain_t::length() {
     return _colorImages.size();
-}
-
-vk::Extent2D SwapChain_t::extent() {
-    return _extent;
 }
 
 Attachment SwapChain_t::colorAttachment(uint32_t index) {
@@ -151,10 +139,6 @@ Attachment SwapChain_t::colorAttachment(uint32_t index) {
 
 Attachment SwapChain_t::depthAttachment(uint32_t index) {
     return _depthImages.at(index);
-}
-
-vk::SwapchainKHR SwapChain_t::raw() {
-    return _swapChain;
 }
 
 SwapChain_t::~SwapChain_t() {

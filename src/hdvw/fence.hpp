@@ -36,8 +36,14 @@ namespace hd {
 
             void reset();
 
-            vk::Fence raw();
+            inline auto raw() {
+                return _fence;
+            }
 
             ~Fence_t();
     };
+
+    inline Fence conjure(FenceCreateInfo ci) {
+        return Fence_t::conjure(ci);
+    }
 }

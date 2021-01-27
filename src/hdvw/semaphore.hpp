@@ -7,8 +7,12 @@
 #include <memory>
 
 namespace hd {
+    enum class SEMAPHORE {
+    };
+
     struct SemaphoreCreateInfo {
         Device device;
+        SEMAPHORE ambiguous;
     };
 
     class Semaphore_t;
@@ -26,8 +30,14 @@ namespace hd {
 
             Semaphore_t(SemaphoreCreateInfo ci);
 
-            vk::Semaphore raw();
+            inline auto raw() {
+                return _semaphore;
+            }
 
             ~Semaphore_t();
     };
+
+    inline Semaphore conjure(SemaphoreCreateInfo ci) {
+        return Semaphore_t::conjure(ci);
+    }
 }

@@ -88,14 +88,6 @@ namespace hd {
         _allocator->destroy(scratch.buffer, scratch.allocation);
     }
 
-    vk::AccelerationStructureKHR BLAS_t::raw() {
-        return _aStruct;
-    }
-
-    vk::DeviceAddress BLAS_t::address() {
-        return _aAddress;
-    }
-
     BLAS_t::~BLAS_t() {
         _device.destroyAccelerationStructureKHR(_aStruct);
         _allocator->destroy(memory.buffer, memory.allocation);

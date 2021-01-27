@@ -1,20 +1,10 @@
 #include <model.hpp>
 
+#include <fstream>
+
+#include <external/rapidjson/document.h>
+
 namespace hd {
-    void Model_t::processNode(aiNode *node, const aiScene *scene) {
-        meshes.reserve(meshes.size() + node->mNumMeshes);
-        for(uint32_t i = 0; i < node->mNumMeshes; i++)
-        {
-            aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
-            meshes.push_back(processMesh(mesh, scene));
-        }
-
-        for(unsigned int i = 0; i < node->mNumChildren; i++)
-        {
-            processNode(node->mChildren[i], scene);
-        }
-    }
-
     Mesh Model_t::processMesh(aiMesh *mesh, const aiScene *scene) {
         Mesh ret;
 
@@ -124,6 +114,21 @@ namespace hd {
         return ret;
     }
 
+    void Model_t::processNode(aiNode *node, const aiScene *scene) {
+        meshes.reserve(meshes.size() + node->mNumMeshes);
+        for(uint32_t i = 0; i < node->mNumMeshes; i++)
+        {
+            aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
+            meshes.push_back(processMesh(mesh, scene));
+        }
+
+        for(unsigned int i = 0; i < node->mNumChildren; i++)
+        {
+            processNode(node->mChildren[i], scene);
+        }
+    }
+
+
     Model_t::Model_t(ModelCreateInfo ci) {
         Assimp::Importer importer;
         const aiScene* scene = importer.ReadFile(ci.filename.data(), aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_FlipUVs | aiProcess_CalcTangentSpace);
@@ -137,4 +142,63 @@ namespace hd {
         textureConjure = ci.textureConjure;
         processNode(scene->mRootNode, scene);
     }
+
+    std::vector<Light> Model_t::parseLights(std::string_view filename) {
+        std::vector<Light> lights;
+
+        std::ifstream file(filename.data(), std::ios_base::in);
+        assert(!file.fail());
+
+        std::stringstream fileStr;
+        fileStr << file.rdbuf();
+        file.close();
+
+        rapidjson::Document sceneJSON;
+        sceneJSON.Parse(fileStr.str().c_str());
+        fileStr.clear();
+
+        assert(sceneJSON.IsObject());
+
+        const auto& lightsValue = sceneJSON["Lights"];
+        assert(lightsValue.IsArray());
+
+        lights.reserve(lightsValue.Size());
+        for (const auto& lightInfo : lightsValue.GetArray()) {
+            assert(lightInfo.IsObject());
+
+            const auto& posInfo = lightInfo["pos"];
+            assert(posInfo.IsArray());
+            assert(posInfo.Size() == 3);
+
+            glm::vec3 pos(0.0f);
+            for (rapidjson::SizeType i = 0; i < posInfo.Size(); i++) {
+                assert(posInfo[i].IsFloat());
+                pos[i] = posInfo[i].GetFloat();
+            }
+
+            const auto& colorInfo = lightInfo["color"];
+            assert(colorInfo.IsArray());
+            assert(colorInfo.Size() == 3);
+
+            glm::vec3 color(0.0f);
+            for (rapidjson::SizeType i = 0; i < colorInfo.Size(); i++) {
+                assert(colorInfo[i].IsFloat());
+                color[i] = colorInfo[i].GetFloat();
+            }
+
+            const auto& intensityInfo = lightInfo["intensity"];
+            assert(intensityInfo.IsFloat());
+
+            float intensity = intensityInfo.GetFloat();
+
+            lights.push_back({
+                    .pos = pos,
+                    .color = color,
+                    .intensity = intensity,
+                    });
+        }
+
+        return lights;
+    }
+
 }

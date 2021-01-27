@@ -35,8 +35,14 @@ namespace hd {
 
             SwapChainRenderPass_t(SwapChainRenderPassCreateInfo ci);
 
-            vk::RenderPass raw();
+            inline vk::RenderPass raw() {
+                return _renderPass;
+            }
 
             ~SwapChainRenderPass_t();
     };
+
+    inline RenderPass conjure(SwapChainRenderPassCreateInfo ci) {
+        return SwapChainRenderPass_t::conjure(ci);
+    }
 }

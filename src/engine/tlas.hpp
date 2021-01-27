@@ -38,10 +38,25 @@ namespace hd {
 
             TLAS_t(TLASCreateInfo ci);
 
-            vk::AccelerationStructureKHR raw();
+            inline auto raw() {
+                return _aStruct;
+            }
 
-            vk::DeviceAddress address();
+            inline auto address() {
+                return _aAddress;
+            }
+
+            auto writeInfo(){
+                vk::WriteDescriptorSetAccelerationStructureKHR info{};
+                info.setAccelerationStructures(_aStruct);
+
+                return info;
+            }
 
             ~TLAS_t();
     };
+
+    inline TLAS conjure(TLASCreateInfo ci) {
+        return TLAS_t::conjure(ci);
+    }
 }

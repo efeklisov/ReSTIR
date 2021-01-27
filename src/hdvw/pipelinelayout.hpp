@@ -29,8 +29,14 @@ namespace hd {
 
             PipelineLayout_t(PipelineLayoutCreateInfo ci);
 
-            vk::PipelineLayout raw();
+            inline auto raw() {
+                return _pipelineLayout;
+            }
 
             ~PipelineLayout_t();
     };
+
+    inline PipelineLayout conjure(PipelineLayoutCreateInfo ci) {
+        return PipelineLayout_t::conjure(ci);
+    }
 };

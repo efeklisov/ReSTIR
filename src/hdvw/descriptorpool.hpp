@@ -35,8 +35,14 @@ namespace hd {
 
             std::vector<DescriptorSet> allocate(uint32_t count, DescriptorLayout layout);
 
-            vk::DescriptorPool raw();
+            inline auto raw() {
+                return _pool;
+            }
 
             ~DescriptorPool_t();
     };
+
+    inline DescriptorPool conjure(DescriptorPoolCreateInfo ci) {
+        return DescriptorPool_t::conjure(ci);
+    }
 }

@@ -13,10 +13,6 @@ PipelineLayout_t::PipelineLayout_t(PipelineLayoutCreateInfo ci) {
     _pipelineLayout = _device.createPipelineLayout(pipelineLayoutInfo);
 }
 
-vk::PipelineLayout PipelineLayout_t::raw() {
-    return _pipelineLayout;
-}
-
 PipelineLayout_t::~PipelineLayout_t() {
     _device.destroy(_pipelineLayout);
 }

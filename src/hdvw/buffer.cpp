@@ -15,14 +15,6 @@ Buffer_t::Buffer_t(BufferCreateInfo ci) {
     _bufferMemory = result.allocation;
 }
 
-vk::DeviceSize Buffer_t::size() {
-    return _bufferSize;
-}
-
-VmaAllocation Buffer_t::memory() {
-    return _bufferMemory;
-}
-
 void* Buffer_t::map() {
     void *data;
     _allocator->map(_bufferMemory, data);
@@ -31,10 +23,6 @@ void* Buffer_t::map() {
 
 void Buffer_t::unmap() {
     _allocator->unmap(_bufferMemory);
-}
-
-vk::Buffer Buffer_t::raw() {
-    return _buffer;
 }
 
 Buffer_t::~Buffer_t() {

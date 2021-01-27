@@ -49,6 +49,12 @@ namespace hd {
 
             vk::Result present(vk::PresentInfoKHR& presentInfo);
 
-            vk::Queue raw();
+            inline auto raw() {
+                return _queue;
+            }
     };
+
+    inline Queue conjure(QueueCreateInfo ci) {
+        return Queue_t::conjure(ci);
+    }
 }

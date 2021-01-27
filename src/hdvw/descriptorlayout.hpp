@@ -31,10 +31,18 @@ namespace hd {
 
             DescriptorLayout_t(DescriptorLayoutCreateInfo ci);
 
-            std::map<vk::DescriptorType, uint32_t> types();
+            inline auto types() {
+                return _types;
+            }
 
-            vk::DescriptorSetLayout raw();
+            inline auto raw() {
+                return _layout;
+            }
 
             ~DescriptorLayout_t();
     };
+
+    inline DescriptorLayout conjure(DescriptorLayoutCreateInfo ci) {
+        return DescriptorLayout_t::conjure(ci);
+    }
 }

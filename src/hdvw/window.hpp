@@ -40,8 +40,14 @@ namespace hd {
 
             std::vector<const char *> getRequiredExtensions();
 
-            GLFWwindow* raw();
+            inline auto raw() {
+                return _window;
+            }
 
             ~Window_t();
     };
+
+    inline Window conjure(WindowCreateInfo ci) {
+        return Window_t::conjure(ci);
+    }
 }

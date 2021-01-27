@@ -40,22 +40,38 @@ namespace hd {
 
             Image_t(ImageCreateInfo ci);
 
-            vk::Extent2D extent();
+            inline auto extent() {
+                return _imageSize;
+            }
 
-            vk::ImageLayout layout();
+            inline auto layout() {
+                return _layout;
+            }
 
             void setLayout(vk::ImageLayout layout);
 
-            vk::ImageSubresourceRange range();
+            inline auto range() {
+                return _range;
+            }
 
-            vk::Format format();
+            inline auto format() {
+                return _format;
+            }
 
-            VmaAllocation memory();
+            inline auto memory() {
+                return _imageMemory;
+            }
 
-            vk::Image raw();
+            inline auto raw() {
+                return _image;
+            }
 
             ~Image_t();
     };
+
+    inline Image conjure(ImageCreateInfo ci) {
+        return Image_t::conjure(ci);
+    }
 
     struct ImageViewCreateInfo {
         vk::Image image = nullptr;
@@ -80,10 +96,24 @@ namespace hd {
 
             ImageView_t(ImageViewCreateInfo ci);
 
-            vk::ImageView raw();
+            inline auto raw() {
+                return _view;
+            }
+
+            vk::DescriptorImageInfo writeInfo(vk::ImageLayout layout) {
+                vk::DescriptorImageInfo info{};
+                info.imageView = _view;
+                info.imageLayout = layout;
+
+                return info;
+            }
 
             ~ImageView_t();
     };
+
+    inline ImageView conjure(ImageViewCreateInfo ci) {
+        return ImageView_t::conjure(ci);
+    }
 
     struct SamplerCreateInfo {
         Device device;
@@ -105,8 +135,14 @@ namespace hd {
 
             Sampler_t(SamplerCreateInfo ci);
 
-            vk::Sampler raw();
+            inline auto raw() {
+                return _sampler;
+            }
 
             ~Sampler_t();
     };
+
+    inline Sampler conjure(SamplerCreateInfo ci) {
+        return Sampler_t::conjure(ci);
+    }
 }

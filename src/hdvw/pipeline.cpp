@@ -124,10 +124,6 @@ DefaultPipeline_t::DefaultPipeline_t(DefaultPipelineCreateInfo ci) {
     _pipeline = res.value;
 }
 
-vk::Pipeline DefaultPipeline_t::raw() {
-    return _pipeline;
-}
-
 DefaultPipeline_t::~DefaultPipeline_t() {
     _device.destroy(_pipeline);
 }
@@ -147,14 +143,6 @@ RaytraycingPipeline_t::RaytraycingPipeline_t(RaytraycingPipelineCreateInfo ci) {
 
     _pipeline = res.value;
     _groupCount = ci.shaderGroups.size();
-}
-
-vk::DeviceSize RaytraycingPipeline_t::getGroupCount() {
-    return _groupCount;
-}
-
-vk::Pipeline RaytraycingPipeline_t::raw() {
-    return _pipeline;
 }
 
 RaytraycingPipeline_t::~RaytraycingPipeline_t() {

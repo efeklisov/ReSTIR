@@ -208,10 +208,6 @@ void CommandBuffer_t::endRenderPass(CommandBuffer buffer) {
     buffer->raw().endRenderPass();
 }
 
-vk::CommandBuffer CommandBuffer_t::raw() {
-    return _buffer;
-}
-
 CommandBuffer_t::~CommandBuffer_t() {
     _device.free(_cmdpool, _buffer);
 }

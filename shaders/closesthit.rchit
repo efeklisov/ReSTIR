@@ -58,15 +58,17 @@ Vertex barycentricVertex(Vertex v0, Vertex v1, Vertex v2) {
 
 void main()
 {
+    uint instance = nonuniformEXT(gl_InstanceCustomIndexEXT);
+
     // Indices of the Triangle
-    ivec3 index = ivec3(indices[nonuniformEXT(gl_InstanceCustomIndexEXT)].i[3 * gl_PrimitiveID + 0],
-                      indices[nonuniformEXT(gl_InstanceCustomIndexEXT)].i[3 * gl_PrimitiveID + 1],
-                      indices[nonuniformEXT(gl_InstanceCustomIndexEXT)].i[3 * gl_PrimitiveID + 2]);
+    ivec3 index = ivec3(indices[instance].i[3 * gl_PrimitiveID + 0],
+                      indices[instance].i[3 * gl_PrimitiveID + 1],
+                      indices[instance].i[3 * gl_PrimitiveID + 2]);
 
     // Vertex of the Triangle
-    Vertex v0 = vertices[nonuniformEXT(gl_InstanceCustomIndexEXT)].v[index.x];
-    Vertex v1 = vertices[nonuniformEXT(gl_InstanceCustomIndexEXT)].v[index.y];
-    Vertex v2 = vertices[nonuniformEXT(gl_InstanceCustomIndexEXT)].v[index.z];
+    Vertex v0 = vertices[instance].v[index.x];
+    Vertex v1 = vertices[instance].v[index.y];
+    Vertex v2 = vertices[instance].v[index.z];
 
     // Ray direction
     vec3 rayDir = -normalize(gl_WorldRayDirectionEXT);
@@ -84,25 +86,26 @@ void main()
     const int lightsNum = 4;
 
     // Phong
-    vec3 diffuse = vec3(0.0f);
-    vec3 specular = vec3(0.0f);
-    for (int i = 0; i < lightsNum; i++) {
-        vec3  lightDir;
-        vec3  lightIntensity;
-        float lightDistance;
-        getLightInfo(lights.l[i], v.pos, lightDir, lightIntensity, lightDistance);
-
-        vec3 L = -lightDir;
-
-        float shadowness = shadowRay(v.pos, shadowBias, L, lightDistance);
-
-        diffuse += shadowness * albedo / pi * lightIntensity * max(0.0f, dot(v.normal, L));
-
-        vec3 R = reflect(lightDir, v.normal);
-
-        specular += shadowness * lightIntensity * pow(max(0.0f, dot(R, rayDir)), specularPower);
-    }
-    hitValue.color = diffuse * mat.diffuse + specular * mat.specular;
+//    vec3 diffuse = vec3(0.0f);
+//    vec3 specular = vec3(0.0f);
+//    for (int i = 0; i < lightsNum; i++) {
+//        vec3  lightDir;
+//        vec3  lightIntensity;
+//        float lightDistance;
+//        getLightInfo(lights.l[i], v.pos, lightDir, lightIntensity, lightDistance);
+//
+//        vec3 L = -lightDir;
+//
+//        float shadowness = shadowRay(v.pos, shadowBias, L, lightDistance);
+//
+//        diffuse += shadowness * albedo / pi * lightIntensity * max(0.0f, dot(v.normal, L));
+//
+//        vec3 R = reflect(lightDir, v.normal);
+//
+//        specular += shadowness * lightIntensity * pow(max(0.0f, dot(R, rayDir)), specularPower);
+//    }
+//    vec3 directColor = diffuse * mat.diffuse + specular * mat.specular;
+    vec3 directColor = texColor;
 
 //    vec3 lightComputed = vec3(max(dot(v.normal, lightVector), 0.2));
 
@@ -136,16 +139,14 @@ void main()
 //    vec3 directColor = lightComputed * shadowness * (diffuse + specular);
 //
 //    // Indirect Result
-//    vec3 indirectColor = vec3(0.0, 0.0, 0.0);
-//
-//    uint N = 16;
-//	for (uint i = 0; i < N; i++) {
-//        float cosTheta;
-//        vec3 direction = CosineWeightedHemisphereSample(hitValue.seed, v, cosTheta);
-//        
-//        indirectColor += colorRay(v.pos, direction, hitValue.seed, hitValue.depth + 1) * cosTheta;
-//    }
-//    indirectColor /= N;
-//
-//    hitValue.color += indirectColor;
+    vec3 indirectColor = vec3(1.0, 1.0, 1.0);
+
+    float cosTheta;
+    vec3 direction = CosineWeightedHemisphereSample(hitValue.seed, v, cosTheta);
+    
+    colorRay(v.pos, direction, hitValue.seed, hitValue.depth + 1);
+    indirectColor *= hitValue.color * cosTheta;
+
+//    hitValue.color += directColor + indirectColor;
+    hitValue.color = directColor * indirectColor;
 }

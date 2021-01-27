@@ -43,10 +43,6 @@ std::vector<const char *> Window_t::getRequiredExtensions() {
     return extensions;
 }
 
-GLFWwindow* Window_t::raw() {
-    return _window;
-}
-
 Window_t::~Window_t() {
     glfwDestroyWindow(_window);
     glfwTerminate();

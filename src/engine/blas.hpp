@@ -37,10 +37,18 @@ namespace hd {
 
             BLAS_t(BLASCreateInfo ci);
 
-            vk::AccelerationStructureKHR raw();
+            inline auto raw() {
+                return _aStruct;
+            }
 
-            vk::DeviceAddress address();
+            inline auto address() {
+                return _aAddress;
+            }
 
             ~BLAS_t();
     };
+
+    inline BLAS conjure(BLASCreateInfo ci) {
+        return BLAS_t::conjure(ci);
+    }
 }

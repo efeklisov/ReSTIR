@@ -20,10 +20,6 @@ void Fence_t::reset() {
     _device.resetFences(_fence);
 }
 
-vk::Fence Fence_t::raw() {
-    return _fence;
-}
-
 Fence_t::~Fence_t() {
     _device.destroy(_fence);
 }

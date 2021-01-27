@@ -39,8 +39,16 @@ namespace hd {
 
             Attachment_t(AttachmentCreateInfo ci);
 
-            vk::Image raw();
+            inline auto raw() {
+                return _imageHandle;
+            }
 
-            vk::ImageView view();
+            inline auto view() {
+                return _view->raw();
+            }
     };
+
+    inline Attachment conjure(AttachmentCreateInfo ci) {
+        return Attachment_t::conjure(ci);
+    }
 }

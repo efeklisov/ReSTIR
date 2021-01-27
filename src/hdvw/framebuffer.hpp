@@ -30,8 +30,14 @@ namespace hd {
 
             Framebuffer_t(FramebufferCreateInfo ci);
 
-            vk::Framebuffer raw();
+            inline auto raw() {
+                return _framebuffer;
+            }
 
             ~Framebuffer_t();
     };
+
+    inline Framebuffer conjure(FramebufferCreateInfo ci) {
+        return Framebuffer_t::conjure(ci);
+    }
 }

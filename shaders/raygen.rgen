@@ -19,17 +19,26 @@ layout(location = 0) rayPayloadEXT hitPayload hitValue;
 
 void main() 
 {
-	const vec2 pixelCenter = vec2(gl_LaunchIDEXT.xy) + vec2(0.5);
-	const vec2 inUV = pixelCenter/vec2(gl_LaunchSizeEXT.xy);
-	vec2 d = inUV * 2.0 - 1.0;
-
     uint seed = initialSeed(gl_LaunchIDEXT.x * cam.frameIndex, gl_LaunchIDEXT.y * cam.frameIndex, 16);
 
-	vec4 origin = cam.viewInverse * vec4(0,0,0,1);
-	vec4 target = cam.projInverse * vec4(d.x, d.y, 1, 1) ;
-	vec4 direction = cam.viewInverse*vec4(normalize(target.xyz / target.w), 0);
+    hitValue.color = vec3(0.0f);
+    vec4 origin = cam.viewInverse * vec4(0, 0, 0, 1);
+    
+    vec3 cumulativeColor = vec3(1.0, 1.0, 1.0);
 
-    colorRay(origin.xyz, direction.xyz, seed, 0);
+    uint N = 16;
+	for (uint i = 0; i < N; i++) {
+        const vec2 pixelCenter = vec2(gl_LaunchIDEXT.xy) + vec2(nextRand(seed), nextRand(seed));
+        const vec2 inUV = pixelCenter / vec2(gl_LaunchSizeEXT.xy);
+        vec2 d = inUV * 2.0 - 1.0;
+
+        vec4 target = cam.projInverse * vec4(d.x, d.y, 1, 1) ;
+        vec4 direction = cam.viewInverse * vec4(normalize(target.xyz / target.w), 0);
+
+        colorRay(origin.xyz, direction.xyz, seed, 0);
+        cumulativeColor *= hitValue.color;
+    }
+    cumulativeColor /= N;
 
 	imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(clamp(hitValue.color, 0.0, 1.0), 0.0));
 }

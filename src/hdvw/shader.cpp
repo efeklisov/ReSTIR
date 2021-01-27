@@ -37,10 +37,6 @@ Shader_t::Shader_t(ShaderCreateInfo ci) {
     _shaderStageInfo.pName = "main";
 }
 
-vk::PipelineShaderStageCreateInfo Shader_t::info() {
-    return _shaderStageInfo;
-}
-
 Shader_t::~Shader_t() {
     _device.destroy(_shaderModule);
 }

@@ -26,6 +26,7 @@ namespace hd {
         Buffer buffer;
         vk::DeviceAddress address;
         uint32_t count;
+        vk::StridedDeviceAddressRegionKHR region{};
     };
 
     class SBT_t {
@@ -41,8 +42,20 @@ namespace hd {
 
             SBT_t(SBTCreateInfo ci);
 
-            SBTEntry raygen();
-            SBTEntry miss();
-            SBTEntry hit();
+            inline auto raygen() {
+                return _raygen;
+            }
+
+            inline auto miss() {
+                return _miss;
+            }
+
+            inline auto hit() {
+                return _hit;
+            }
     };
+
+    inline SBT conjure(SBTCreateInfo ci) {
+        return SBT_t::conjure(ci);
+    }
 }

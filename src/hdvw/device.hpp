@@ -78,20 +78,32 @@ namespace hd {
 
             void waitIdle();
 
-            vk::PhysicalDevice physical();
+            inline auto physical() {
+                return _physicalDevice;
+            }
 
             vk::ResultValue<uint32_t> acquireNextImage(vk::SwapchainKHR swapChain, vk::Semaphore semaphore);
 
-            vk::Device raw();
+            inline auto raw() {
+                return _device;
+            }
 
-            QueueFamilyIndices indices();
+            inline auto indices() {
+                return _indices;
+            }
 
             void updateSurfaceInfo();
 
-            SwapChainSupportDetails swapChainSupport();
+            inline auto swapChainSupport() {
+                return _swapChainSupport;
+            }
 
             vk::DeviceAddress getBufferDeviceAddress(vk::BufferDeviceAddressInfo& bi);
 
             ~Device_t();
     };
+
+    inline Device conjure(DeviceCreateInfo ci) {
+        return Device_t::conjure(ci);
+    }
 }

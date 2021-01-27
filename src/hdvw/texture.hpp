@@ -37,10 +37,29 @@ namespace hd {
 
             Texture_t(TextureCreateInfo ci);
 
-            vk::Sampler sampler();
+            vk::DescriptorImageInfo writeInfo(vk::ImageLayout layout) {
+                vk::DescriptorImageInfo info{};
+                info.imageView = view();
+                info.sampler = sampler();
+                info.imageLayout = layout;
 
-            vk::ImageView view();
+                return info;
+            }
 
-            vk::Image raw();
+            inline vk::Sampler sampler() {
+                return _sampler->raw();
+            }
+
+            inline vk::ImageView view() {
+                return _imageView->raw();
+            }
+
+            inline vk::Image raw() {
+                return _image->raw();
+            }
     };
+
+    inline Texture conjure(TextureCreateInfo ci) {
+        return Texture_t::conjure(ci);
+    }
 }

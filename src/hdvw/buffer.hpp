@@ -32,16 +32,35 @@ namespace hd {
 
             Buffer_t(BufferCreateInfo ci);
 
-            vk::DeviceSize size();
+            inline auto size() {
+                return _bufferSize;
+            }
 
-            VmaAllocation memory();
+            inline auto memory() {
+                return _bufferMemory;
+            }
 
             void* map();
 
             void unmap();
 
-            vk::Buffer raw();
+            inline auto raw() {
+                return _buffer;
+            }
+
+            auto writeInfo() {
+                vk::DescriptorBufferInfo info{};
+                info.buffer = _buffer;
+                info.offset = 0;
+                info.range = size();
+
+                return info;
+            }
 
             ~Buffer_t();
     };
+
+    inline Buffer conjure(BufferCreateInfo ci) {
+        return Buffer_t::conjure(ci);
+    }
 }

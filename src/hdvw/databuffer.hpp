@@ -46,7 +46,7 @@ namespace hd {
                 _entities = ci.data.size();
                 uint64_t _size = sizeof(ci.data[0]) * ci.data.size();
 
-                Buffer stagingBuffer = Buffer_t::conjure({
+                Buffer stagingBuffer = hd::conjure({
                         .allocator = ci.allocator,
                         .size = _size,
                         .bufferUsage = vk::BufferUsageFlagBits::eTransferSrc,
@@ -58,7 +58,7 @@ namespace hd {
                 memcpy(data, ci.data.data(), (size_t) _size);
                 ci.allocator->unmap(stagingBuffer->memory());
 
-                _buffer = Buffer_t::conjure({
+                _buffer = hd::conjure({
                         .allocator = ci.allocator,
                         .size = _size,
                         .bufferUsage = vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eShaderDeviceAddress | ci.usage,
@@ -78,7 +78,7 @@ namespace hd {
                 _address = ci.device->getBufferDeviceAddress(bufferDeviceAI);
             }
 
-            vk::DeviceSize size() {
+            inline vk::DeviceSize size() {
                 return _buffer->size();
             }
 
@@ -86,19 +86,23 @@ namespace hd {
                 return _entities;
             }
 
-            void* map() {
+            inline void* map() {
                 return _buffer->map();
             }
 
-            void unmap() {
+            inline void unmap() {
                 _buffer->unmap();
             }
 
-            vk::Buffer raw() {
+            inline vk::Buffer raw() {
                 return _buffer->raw();
             }
 
-            VmaAllocation memory() {
+            inline auto writeInfo() {
+                return _buffer->writeInfo();
+            }
+
+            inline VmaAllocation memory() {
                 return _buffer->memory();
             }
 
@@ -106,4 +110,9 @@ namespace hd {
                 return _address;
             }
     };
+
+    template<class T>
+    inline DataBuffer<T> conjure(DataBufferCreateInfo<T> ci) {
+        return DataBuffer_t<T>::conjure(ci);
+    }
 }

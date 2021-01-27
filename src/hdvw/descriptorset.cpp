@@ -25,7 +25,3 @@ void DescriptorSet_t::update(UpdateDescriptorImageInfo ci) {
 
     _device.updateDescriptorSets(writeSet, nullptr);
 }
-
-vk::DescriptorSet DescriptorSet_t::raw() {
-    return _set;
-}

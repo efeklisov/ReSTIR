@@ -24,7 +24,7 @@ Texture_t::Texture_t(TextureCreateInfo ci) {
 
     stbi_image_free(pixels);
 
-    _image = Image_t::conjure({
+    _image = hd::conjure({
             .allocator = ci.allocator,
             .extent = {(uint32_t) texWidth, (uint32_t) texHeight},
             .format = vk::Format::eR8G8B8A8Srgb,
@@ -47,7 +47,7 @@ Texture_t::Texture_t(TextureCreateInfo ci) {
             });
     ci.commandPool->singleTimeEnd(buff, ci.queue);
 
-    _imageView = ImageView_t::conjure({
+    _imageView = hd::conjure({
             .image = _image->raw(),
             .device = ci.device,
             .format = _image->format(),
@@ -55,20 +55,8 @@ Texture_t::Texture_t(TextureCreateInfo ci) {
             .type = vk::ImageViewType::e2D,
             });
 
-    _sampler = Sampler_t::conjure({
+    _sampler = hd::conjure({
             .device = ci.device,
             .addressMode = vk::SamplerAddressMode::eRepeat,
             });
-}
-
-vk::Sampler Texture_t::sampler() {
-    return _sampler->raw();
-}
-
-vk::ImageView Texture_t::view() {
-    return _imageView->raw();
-}
-
-vk::Image Texture_t::raw() {
-    return _image->raw();
 }

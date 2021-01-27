@@ -28,8 +28,14 @@ namespace hd {
 
             Surface_t(SurfaceCreateInfo ci);
 
-            vk::SurfaceKHR raw();
+            inline auto raw() {
+                return _surface;
+            }
 
             ~Surface_t();
     };
+
+    inline Surface conjure(SurfaceCreateInfo ci) {
+        return Surface_t::conjure(ci);
+    }
 }

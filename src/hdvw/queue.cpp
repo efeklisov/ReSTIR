@@ -101,10 +101,6 @@ vk::Result Queue_t::present(vk::PresentInfoKHR& presentInfo) {
     return _queue.presentKHR(&presentInfo);
 }
 
-vk::Queue Queue_t::raw() {
-    return _queue;
-}
-
 uint32_t Queue_t::graphicsIndex{ 0 };
 uint32_t Queue_t::presentIndex{ 0 };
 uint32_t Queue_t::transferIndex{ 0 };

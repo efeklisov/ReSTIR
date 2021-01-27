@@ -59,10 +59,6 @@ SwapChainRenderPass_t::SwapChainRenderPass_t(SwapChainRenderPassCreateInfo ci) {
     _renderPass = _device.createRenderPass(renderPassInfo);
 }
 
-vk::RenderPass SwapChainRenderPass_t::raw() {
-    return _renderPass;
-}
-
 SwapChainRenderPass_t::~SwapChainRenderPass_t() {
     _device.destroy(_renderPass);
 }

@@ -42,6 +42,12 @@ namespace hd {
 
             void update(UpdateDescriptorImageInfo ci);
 
-            vk::DescriptorSet raw();
+            inline auto raw() {
+                return _set;
+            }
     };
+
+    inline DescriptorSet conjure(DescriptorSetCreateInfo ci) {
+        return DescriptorSet_t::conjure(ci);
+    }
 }

@@ -18,14 +18,6 @@ DescriptorLayout_t::DescriptorLayout_t(DescriptorLayoutCreateInfo ci) {
     _layout = _device.createDescriptorSetLayout(dci);
 }
 
-std::map<vk::DescriptorType, uint32_t> DescriptorLayout_t::types() {
-    return _types;
-}
-
-vk::DescriptorSetLayout DescriptorLayout_t::raw() {
-    return _layout;
-}
-
 DescriptorLayout_t::~DescriptorLayout_t() {
     _device.destroy(_layout);
 }
