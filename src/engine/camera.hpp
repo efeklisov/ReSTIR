@@ -28,8 +28,8 @@ namespace hd {
             Camera_t(CameraCreateInfo ci) : window(ci.window->raw()) { 
                 uint32_t width, height;
                 ci.window->getFramebufferSize(width, height);
-                lastX = width / 2;
-                lastY = height / 2;
+                lastX = width / 2.0f;
+                lastY = height / 2.0f;
                 pitch = -glm::pi<float>();
                 yaw = 0;
                 update(0);

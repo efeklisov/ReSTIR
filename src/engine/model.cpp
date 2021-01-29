@@ -9,8 +9,7 @@ namespace hd {
         Mesh ret;
 
         ret.vertices.reserve(mesh->mNumVertices);
-        for(uint32_t i = 0; i < mesh->mNumVertices; i++)
-        {
+        for(uint32_t i = 0; i < mesh->mNumVertices; i++) {
             Vertex vertex;
 
             vertex.pos.x = mesh->mVertices[i].x;
@@ -191,14 +190,95 @@ namespace hd {
 
             float intensity = intensityInfo.GetFloat();
 
+            const auto& dimsInfo = lightInfo["dims"];
+            assert(dimsInfo.IsArray());
+            assert(dimsInfo.Size() == 2);
+
+            glm::vec2 dims(0.0f);
+            for (rapidjson::SizeType i = 0; i < dimsInfo.Size(); i++) {
+                assert(dimsInfo[i].IsFloat());
+                dims[i] = dimsInfo[i].GetFloat();
+            }
+
+            const auto& rotateInfo = lightInfo["rotate"];
+            assert(rotateInfo.IsArray());
+            assert(rotateInfo.Size() == 3);
+
+            glm::vec3 rotate(0.0f);
+            for (rapidjson::SizeType i = 0; i < rotateInfo.Size(); i++) {
+                assert(rotateInfo[i].IsFloat());
+                rotate[i] = glm::radians(rotateInfo[i].GetFloat());
+            }
+
             lights.push_back({
                     .pos = pos,
                     .color = color,
                     .intensity = intensity,
+                    .dims = dims,
+                    .rotate = rotate,
                     });
         }
 
         return lights;
     }
 
+    LightPadInfo Model_t::generateLightPad(Light light) {
+        auto translateAbs = glm::translate(glm::mat4(1.0f), light.pos);
+
+        std::vector<glm::vec4> translateRel = {
+            glm::vec4( light.dims[0] / 2, 0.0f,  light.dims[1] / 2, 1.0f),
+            glm::vec4(-light.dims[0] / 2, 0.0f,  light.dims[1] / 2, 1.0f),
+            glm::vec4( light.dims[0] / 2, 0.0f, -light.dims[1] / 2, 1.0f),
+            glm::vec4(-light.dims[0] / 2, 0.0f, -light.dims[1] / 2, 1.0f),
+        };
+
+        auto rotate = glm::mat4_cast(glm::normalize(glm::quat(light.rotate)));
+
+        std::vector<glm::vec3> generatedVertices(translateRel.size());
+        for (uint32_t iter = 0; iter < translateRel.size(); iter++) {
+            generatedVertices[iter] = translateAbs * rotate * translateRel[iter];
+        }
+
+        std::vector<glm::vec2> generatedTex = {
+            glm::vec2(0.0, 0.0),
+            glm::vec2(1.0, 0.0),
+            glm::vec2(0.0, 1.0),
+            glm::vec2(1.0, 1.0),
+        };
+
+        std::vector<uint32_t> generatedIndeces = {
+            0, 1, 2,
+            1, 2, 3,
+            0, 2, 1,
+            1, 3, 2,
+        };
+
+        glm::vec3 generatedNormal;
+        {
+            glm::vec3 vec1 = generatedVertices[1] - generatedVertices[0];
+            glm::vec3 vec2 = generatedVertices[2] - generatedVertices[0];
+
+            generatedNormal = glm::normalize(glm::cross(vec1, vec2));
+        }
+
+        LightPadInfo ret{};
+        for (auto& elem: generatedIndeces) {
+            Vertex vertex = {};
+
+            vertex.pos = generatedVertices[elem];
+
+            vertex.texCoord = generatedTex[elem];
+
+            vertex.normals = generatedNormal;
+
+            ret.vertices.push_back(vertex);
+            ret.indices.push_back(ret.vertices.size() - 1);
+        }
+
+        ret.props.color = light.color;
+        ret.props.intensity = light.intensity;
+        ret.props.normal = generatedNormal;
+
+        return ret;
+    }
 }

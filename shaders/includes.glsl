@@ -28,9 +28,9 @@ struct hitPayload
     uint depth;
 };
 
-struct PointLight
+struct Light
 {
-    vec3 pos;
     vec3 color;
     float intensity;
+    vec3 normal;
 };

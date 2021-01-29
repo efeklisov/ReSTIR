@@ -30,6 +30,15 @@ namespace hd {
         glm::vec3 pos;
         glm::vec3 color;
         float intensity;
+        glm::vec2 dims;
+        glm::vec3 normal;
+        glm::vec3 rotate;
+    };
+
+    struct VRAM_Light {
+        glm::vec3 color;
+        float intensity;
+        glm::vec3 normal;
     };
 
     struct Mesh {
@@ -42,6 +51,12 @@ namespace hd {
     struct ModelCreateInfo {
         std::string_view filename;
         std::function<Texture(const char*)> textureConjure;
+    };
+
+    struct LightPadInfo {
+        std::vector<Vertex> vertices;
+        std::vector<uint32_t> indices;
+        VRAM_Light props;
     };
 
     class Model_t;
@@ -63,6 +78,8 @@ namespace hd {
             }
 
             static std::vector<Light> parseLights(std::string_view filename);
+
+            static LightPadInfo generateLightPad(Light light);
 
             Model_t(ModelCreateInfo ci);
     };

@@ -55,6 +55,11 @@ struct UniformData {
     uint32_t frameIndex;
 };
 
+struct UniSizes {
+    uint32_t meshesSize;
+    uint32_t lightsSize;
+};
+
 class App {
     private:
         bool framebufferResized = false;
@@ -73,6 +78,7 @@ class App {
         std::vector<hd::Fence> inFlightFences;
 
         hd::Model scene;
+        std::vector<hd::Light> lights;
 
         struct vram {
             using vram_vertices = hd::DataBuffer<hd::Vertex>;
@@ -84,7 +90,7 @@ class App {
             std::vector<vram_indices>  indices;
             std::vector<vram_texture>  diffuse;
             std::vector<vram_material> materials;
-            hd::DataBuffer<hd::Light>  lights;
+            hd::DataBuffer<hd::VRAM_Light>  lights;
 
             std::vector<hd::BLAS> blases;
             hd::TLAS tlas;
@@ -208,7 +214,7 @@ class App {
                                 }); },
                     });
             
-            auto lights = hd::Model_t::parseLights("models/scene.json");
+            lights = hd::Model_t::parseLights("models/scene.json");
 
             vram.vertices.reserve(scene->meshes.size());
             vram.indices.reserve(scene->meshes.size());
@@ -276,12 +282,51 @@ class App {
                 instances.push_back(instanceInfo);
             }
 
-            vram.lights = hd::conjure<hd::Light>({
+            std::vector<hd::VRAM_Light> vram_lights;
+            vram_lights.reserve(lights.size());
+
+            for (uint32_t iter = 0; iter < lights.size(); iter++){
+                auto lightPad = hd::Model_t::generateLightPad(lights[iter]);
+                vram_lights.push_back(lightPad.props);
+
+                auto vram_vertices = hd::conjure<hd::Vertex>({
+                        .commandPool = graphicsPool,
+                        .queue = graphicsQueue,
+                        .allocator = allocator,
+                        .device = device,
+                        .data = lightPad.vertices,
+                        .usage = vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eStorageBuffer,
+                        });
+
+                auto vram_indices = hd::conjure<uint32_t>({
+                        .commandPool = graphicsPool,
+                        .queue = graphicsQueue,
+                        .allocator = allocator,
+                        .device = device,
+                        .data = lightPad.indices,
+                        .usage = vk::BufferUsageFlagBits::eIndexBuffer | vk::BufferUsageFlagBits::eStorageBuffer,
+                        });
+
+                vram.blases.push_back(hd::conjure({
+                        vram_vertices,
+                        vram_indices,
+                        graphicsPool,
+                        graphicsQueue,
+                        device,
+                        allocator,
+                        }));
+
+                instanceInfo.instanceCustomIndex = scene->meshes.size() + iter; // InstanceId
+                instanceInfo.accelerationStructureReference = vram.blases[vram.blases.size() - 1]->address();
+                instances.push_back(instanceInfo);
+            }
+
+            vram.lights = hd::conjure<hd::VRAM_Light>({
                     .commandPool = graphicsPool,
                     .queue = graphicsQueue,
                     .allocator = allocator,
                     .device = device,
-                    .data = lights,
+                    .data = vram_lights,
                     .usage = vk::BufferUsageFlagBits::eStorageBuffer,
                     });
 
@@ -353,12 +398,18 @@ class App {
             lightsBinding.descriptorCount = 1;
             lightsBinding.stageFlags = vk::ShaderStageFlagBits::eClosestHitKHR;
 
+            vk::DescriptorSetLayoutBinding uniSizesBinding{};
+            uniSizesBinding.binding = 8;
+            uniSizesBinding.descriptorType = vk::DescriptorType::eUniformBuffer;
+            uniSizesBinding.descriptorCount = 1;
+            uniSizesBinding.stageFlags = vk::ShaderStageFlagBits::eClosestHitKHR;
+
             rayLayout = hd::conjure({
                     .device = device,
                     .bindings = { 
                             aStructLayoutBinding, resImageLayoutBinding, uniBufferBinding, 
                             textureBinding, vertexBinding, indicesBinding, materialBinding,
-                            lightsBinding
+                            lightsBinding, uniSizesBinding
                         },
                     });
 
@@ -444,6 +495,7 @@ class App {
         } storage;
 
         hd::DataBuffer<UniformData> unibuffer;
+        hd::DataBuffer<UniSizes> vram_uniSizes;
         hd::DescriptorPool rayDescriptorPool;
         hd::DescriptorSet rayDescriptorSet;
         std::vector<hd::CommandBuffer> rayCmdBuffers;
@@ -485,7 +537,7 @@ class App {
                     .type = vk::ImageViewType::e2D,
                     });
 
-            UniformData uniData {};
+            UniformData uniData{};
 
             unibuffer = hd::conjure<UniformData>({
                     .commandPool = graphicsPool,
@@ -493,6 +545,20 @@ class App {
                     .allocator = allocator,
                     .device = device,
                     .data = {uniData},
+                    .usage = vk::BufferUsageFlagBits::eUniformBuffer,
+                    .memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU,
+                    });
+
+            UniSizes uniSizes{};
+            uniSizes.meshesSize = scene->meshes.size();
+            uniSizes.lightsSize = lights.size();
+
+            vram_uniSizes = hd::conjure<UniSizes>({
+                    .commandPool = graphicsPool,
+                    .queue = graphicsQueue,
+                    .allocator = allocator,
+                    .device = device,
+                    .data = {uniSizes},
                     .usage = vk::BufferUsageFlagBits::eUniformBuffer,
                     .memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU,
                     });
@@ -507,7 +573,7 @@ class App {
 
             {
                 std::vector<vk::WriteDescriptorSet> writes;
-                writes.reserve(4 + vram.vertices.size());
+                writes.reserve(5 + vram.vertices.size());
 
                 auto write = [&](uint32_t binding, vk::DescriptorType type, uint32_t index = 0) {
                     vk::WriteDescriptorSet writeSet{};
@@ -539,6 +605,11 @@ class App {
                 auto lightsWrite = write(7, vk::DescriptorType::eStorageBuffer);
                 lightsWrite.setPBufferInfo(&lightsInfo);
                 writes.push_back(lightsWrite);
+
+                auto uniSizesInfo = vram_uniSizes->writeInfo();
+                auto uniSizesWrite = write(8, vk::DescriptorType::eUniformBuffer);
+                uniSizesWrite.setPBufferInfo(&uniSizesInfo);
+                writes.push_back(uniSizesWrite);
 
                 std::vector<vk::DescriptorImageInfo>  imgInfos;
                 std::vector<vk::DescriptorBufferInfo> vtxInfos;
@@ -668,7 +739,7 @@ class App {
             const float cameraRotateSpeed = 0.06f;
 
             static float rotateYAngle = glm::pi<float>();
-            static float rotateZAngle = -glm::pi<float>() / 2;
+            static float rotateZAngle = -glm::half_pi<float>();
 
             static glm::vec3 cameraPos = glm::vec3(13.5f, -3.0f, 0.0f);
             static glm::vec3 cameraForward = glm::vec3(0.0f, 0.0f, 1.0f);

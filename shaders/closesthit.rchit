@@ -15,7 +15,11 @@ layout(binding = 3, set = 0) uniform sampler2D texSamplers[];
 layout(binding = 4, set = 0, scalar) buffer Vertices { Vertex v[]; } vertices[];
 layout(binding = 5, set = 0) buffer Indices { uint i[]; } indices[];
 layout(binding = 6, set = 0, scalar) buffer Materials { Material m; } materials[];
-layout(binding = 7, set = 0, scalar) buffer Lights { PointLight l[]; } lights;
+layout(binding = 7, set = 0, scalar) buffer Lights { Light l[]; } lights;
+layout(binding = 8, set = 0) uniform Sizes {
+    uint meshesSize;    
+    uint lightsSize;
+} sizes;
 
 float shadowBias = 0.0001f;
 float pi = 3.14159265f;
@@ -36,14 +40,14 @@ float shadowRay(vec3 origin, float shadowBias, vec3 direction, float dist) {
         return 1.0f;
 }
 
-void getLightInfo(PointLight light, vec3 iPoint, out vec3 dir, out vec3 intensity, out float dist) {
-    dir = iPoint - light.pos;
-    dist = length(dir);
-    dir = normalize(dir);
+// void getLightInfo(PointLight light, vec3 iPoint, out vec3 dir, out vec3 intensity, out float dist) {
+    // dir = iPoint - light.pos;
+    // dist = length(dir);
+    // dir = normalize(dir);
 
-    float r2 = dist * dist;
-    intensity = light.intensity * light.color / (4 * pi * r2);
-}
+    // float r2 = dist * dist;
+    // intensity = light.intensity * light.color / (4 * pi * r2);
+// }
 
 Vertex barycentricVertex(Vertex v0, Vertex v1, Vertex v2) {
     const vec3 barycentric = vec3(1.0f - attribs.x - attribs.y, attribs.x, attribs.y);
@@ -60,6 +64,19 @@ void main()
 {
     uint instance = nonuniformEXT(gl_InstanceCustomIndexEXT);
 
+    // Ray direction
+    vec3 rayDir = -normalize(gl_WorldRayDirectionEXT);
+
+    if (instance >= sizes.meshesSize) {
+        uint lightNo = instance - sizes.meshesSize;
+
+        if (dot(rayDir, lights.l[lightNo].normal) > 0)
+            hitValue.color = lights.l[lightNo].color * lights.l[lightNo].intensity;
+        else
+            hitValue.color = vec3(0.1f, 0.1f, 0.1f);
+        return;
+    }
+
     // Indices of the Triangle
     ivec3 index = ivec3(indices[instance].i[3 * gl_PrimitiveID + 0],
                       indices[instance].i[3 * gl_PrimitiveID + 1],
@@ -70,9 +87,6 @@ void main()
     Vertex v1 = vertices[instance].v[index.y];
     Vertex v2 = vertices[instance].v[index.z];
 
-    // Ray direction
-    vec3 rayDir = -normalize(gl_WorldRayDirectionEXT);
-
     // Interpolated vertex
     Vertex v = barycentricVertex(v0, v1, v2);
 
@@ -82,63 +96,10 @@ void main()
     // Sample material
     Material mat = materials[nonuniformEXT(gl_InstanceCustomIndexEXT)].m;
 
-    // Light
-    const int lightsNum = 4;
-
-    // Phong
-//    vec3 diffuse = vec3(0.0f);
-//    vec3 specular = vec3(0.0f);
-//    for (int i = 0; i < lightsNum; i++) {
-//        vec3  lightDir;
-//        vec3  lightIntensity;
-//        float lightDistance;
-//        getLightInfo(lights.l[i], v.pos, lightDir, lightIntensity, lightDistance);
-//
-//        vec3 L = -lightDir;
-//
-//        float shadowness = shadowRay(v.pos, shadowBias, L, lightDistance);
-//
-//        diffuse += shadowness * albedo / pi * lightIntensity * max(0.0f, dot(v.normal, L));
-//
-//        vec3 R = reflect(lightDir, v.normal);
-//
-//        specular += shadowness * lightIntensity * pow(max(0.0f, dot(R, rayDir)), specularPower);
-//    }
-//    vec3 directColor = diffuse * mat.diffuse + specular * mat.specular;
+    // Direct Result
     vec3 directColor = texColor;
 
-//    vec3 lightComputed = vec3(max(dot(v.normal, lightVector), 0.2));
-
-    // Material
-//    Material mat = materials[nonuniformEXT(gl_InstanceCustomIndexEXT)].m;
-
-    // Diffuse
-//    vec3 diffuse = mat.diffuse * max(dot(v.normal, lightVector), 0.0);
-//    if (mat.shadingModel >= 1)
-//        diffuse += mat.ambient;
-//
-//    diffuse *= texture(texSamplers[nonuniformEXT(gl_InstanceCustomIndexEXT)], v.texCoord).xyz;
-//
-//    vec3 specular = vec3(0.0);
-
-//    if (shadowed) {
-//        shadowness = 0.3;
-//    } else if (mat.shadingModel >= 2) {
-//        // Specular
-//        const float shininess = max(mat.shininess, 4.0);
-//        const float energyConservation = (2.0 + shininess) / (2.0 * 3.14159265);
-//
-//        vec3 viewVector = normalize(-gl_WorldRayDirectionEXT);
-//        vec3 reflection = reflect(-lightVector, v.normal);
-//
-//        specular = mat.specular * energyConservation * pow(max(dot(viewVector, reflection), 0.0), shininess);
-//    }
-
-
-//    // Direct Result
-//    vec3 directColor = lightComputed * shadowness * (diffuse + specular);
-//
-//    // Indirect Result
+    // Indirect Result
     vec3 indirectColor = vec3(1.0, 1.0, 1.0);
 
     float cosTheta;
@@ -147,6 +108,5 @@ void main()
     colorRay(v.pos, direction, hitValue.seed, hitValue.depth + 1);
     indirectColor *= hitValue.color * cosTheta;
 
-//    hitValue.color += directColor + indirectColor;
     hitValue.color = directColor * indirectColor;
 }
