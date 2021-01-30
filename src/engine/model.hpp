@@ -39,6 +39,9 @@ namespace hd {
         glm::vec3 color;
         float intensity;
         glm::vec3 normal;
+        glm::vec3 a;
+        glm::vec3 ab;
+        glm::vec3 ac;
     };
 
     struct Mesh {

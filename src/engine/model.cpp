@@ -278,6 +278,9 @@ namespace hd {
         ret.props.color = light.color;
         ret.props.intensity = light.intensity;
         ret.props.normal = generatedNormal;
+        ret.props.a = generatedVertices[0];
+        ret.props.ab = generatedVertices[1] - generatedVertices[0];
+        ret.props.ac = generatedVertices[2] - generatedVertices[0];
 
         return ret;
     }

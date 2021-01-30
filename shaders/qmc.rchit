@@ -96,9 +96,6 @@ void main()
     // Sample material
     Material mat = materials[nonuniformEXT(gl_InstanceCustomIndexEXT)].m;
 
-    // Direct Result
-    vec3 directColor = texColor;
-
     // Indirect Result
     vec3 indirectColor = vec3(1.0, 1.0, 1.0);
 
@@ -108,5 +105,8 @@ void main()
     colorRay(v.pos, direction, hitValue.seed, hitValue.depth + 1);
     indirectColor *= hitValue.color * cosTheta;
 
-    hitValue.color = directColor * indirectColor;
+    float PDF = cosTheta / pi;
+    vec3 BRDF = texColor / pi;
+
+    hitValue.color = (BRDF / PDF) * cosTheta * indirectColor;
 }

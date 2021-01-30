@@ -438,7 +438,7 @@ class App {
 
             hd::Shader closestHitShader = hd::conjure({
                     .device = device,
-                    .filename = "shaders/closesthit.rchit.spv",
+                    .filename = "shaders/shadowrays.rchit.spv",
                     .stage = vk::ShaderStageFlagBits::eClosestHitKHR,
                     });
 

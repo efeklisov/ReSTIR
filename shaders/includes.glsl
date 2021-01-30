@@ -26,6 +26,7 @@ struct hitPayload
     vec3 color;
     uint seed;
     uint depth;
+    bool diffuse;
 };
 
 struct Light
@@ -33,4 +34,7 @@ struct Light
     vec3 color;
     float intensity;
     vec3 normal;
+    vec3 a;
+    vec3 ab;
+    vec3 ac;
 };
