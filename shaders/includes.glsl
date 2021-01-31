@@ -27,6 +27,7 @@ struct hitPayload
     uint seed;
     uint depth;
     bool diffuse;
+    float prevPDF;
 };
 
 struct Light
