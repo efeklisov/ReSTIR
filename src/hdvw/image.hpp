@@ -15,6 +15,7 @@ namespace hd {
         vk::ImageAspectFlags aspect = vk::ImageAspectFlagBits::eColor;
         uint32_t layers = 1;
         vk::ImageCreateFlags flags = vk::ImageCreateFlags{0};
+        vk::ImageTiling tiling = vk::ImageTiling::eOptimal;
         vk::ImageUsageFlags imageUsage = vk::ImageUsageFlagBits::eSampled;
         VmaMemoryUsage memoryUsage = VMA_MEMORY_USAGE_GPU_ONLY;
     };

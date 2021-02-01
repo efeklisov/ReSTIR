@@ -6,7 +6,7 @@ set (CMAKE_CXX_COMPILER clang++)
 
 add_definitions (-DVULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1 -DVK_ENABLE_BETA_EXTENSIONS)
 
-set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-nullability-completeness")
+set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-nullability-completeness -pthread")
 
 if (UNIX AND NOT APPLE)
     set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0 -g" )
@@ -51,8 +51,10 @@ add_executable (neo
     src/engine/tlas.cpp
     src/engine/sbt.cpp
     src/engine/model.cpp
+    src/engine/saveimg.cpp
     src/external/vk_mem_alloc.cpp
     src/external/stb_image.cpp
+    src/external/stb_image_write.cpp
 )
 
 if (UNIX AND NOT APPLE)

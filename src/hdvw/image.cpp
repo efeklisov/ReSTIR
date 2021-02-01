@@ -20,7 +20,7 @@ Image_t::Image_t(ImageCreateInfo ci) {
     ici.mipLevels = 1;
     ici.arrayLayers = _range.layerCount;
     ici.format = _format;
-    ici.tiling = vk::ImageTiling::eOptimal;
+    ici.tiling = ci.tiling;
     ici.initialLayout = _layout;
     ici.usage = ci.imageUsage;
     ici.samples = vk::SampleCountFlagBits::e1;

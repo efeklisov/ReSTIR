@@ -40,22 +40,6 @@ float shadowRay(vec3 origin, float shadowBias, vec3 direction, float dist) {
         return 1.0f;
 }
 
-float shadowRay(vec3 origin, float shadowBias, vec3 target) {
-	shadowed = true;
-
-    vec3 where = target - origin;
-    vec3 direction = normalize(where);
-    float dist = length(where);
-
-    traceRayEXT(topLevelAS, gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT, 
-        0xFF, 0, 0, 1, origin, shadowBias, direction, dist, 2);
-
-    if (shadowed)
-        return 0.3f;
-    else
-        return 1.0f;
-}
-
 // void getLightInfo(PointLight light, vec3 iPoint, out vec3 dir, out vec3 intensity, out float dist) {
     // dir = iPoint - light.pos;
     // dist = length(dir);
@@ -80,7 +64,7 @@ float lightArea(Light light) {
     return length(light.ab) * length(light.ac);
 }
 
-vec3 lightPoint(Light light) {
+vec3 lightSample(Light light) {
     vec3 a = light.a;
     vec3 b = light.ab + light.a;
     vec3 c = light.ac + light.a;
@@ -92,47 +76,6 @@ vec3 lightPoint(Light light) {
 
     float t = nextRand(hitValue.seed);
     return t * e + (1 - t) * f;
-}
-
-float lightPDF(Light light, vec3 hitPos, vec3 origin) {
-    vec3 dir = hitPos - origin;
-    float D = length(dir);
-    return D * D / (lightArea(light) * dot(light.normal, -normalize(dir)));
-}
-
-struct LightSample {
-    vec3 pos;
-    float pdf;
-};
-
-LightSample lightSample(Light light, Vertex v) {
-    LightSample lightSam;
-    lightSam.pos = lightPoint(light);
-    lightSam.pdf = lightPDF(light, lightSam.pos, v.pos);
-    return lightSam;
-}
-
-vec3 evalBRDF(Vertex v, Material mat, vec3 texColor, vec3 lpos) {
-    vec3 sdir = normalize(lpos - v.pos);
-    float cosTheta2 = dot(sdir, v.normal);
-    return texColor * cosTheta2 / pi;
-}
-
-struct BRDFSample {
-    vec3 val;
-    float pdf;
-    vec3 dir;
-    float cosTheta;
-};
-
-BRDFSample brdfSample(Vertex v, Material mat, vec3 texColor) {
-    BRDFSample iSample;
-
-    iSample.dir = CosineWeightedHemisphereSample(hitValue.seed, v, iSample.cosTheta);
-    iSample.val = texColor / pi;
-    iSample.pdf = iSample.cosTheta / pi;
-
-    return iSample;
 }
 
 void main()
@@ -159,10 +102,12 @@ void main()
             return;
 
         vec3 prevHitPos = gl_WorldRayOriginEXT;
-        vec3 hitPos = prevHitPos + gl_WorldRayDirectionEXT * gl_HitTEXT;
+        vec3 direction = gl_WorldRayDirectionEXT;
+        vec3 hitPos = prevHitPos + direction * gl_HitTEXT;
 
-        float p_e = lightPDF(light, hitPos, prevHitPos);
-        float p_i = hitValue.prevPDF;
+        float D = length(hitPos - prevHitPos);
+        float p_e = D * D / (lightArea(light) * dot(light.normal, -direction));
+        float p_i = dot(hitValue.prevNrm, direction);
         float w_i = p_i * p_i / (p_e * p_e + p_i * p_i);
 
         hitValue.color = light.intensity * light.color * w_i;
@@ -190,24 +135,39 @@ void main()
     // Sample material
     Material mat = materials[nonuniformEXT(gl_InstanceCustomIndexEXT)].m;
 
-    // MIS
-    Light light = lights.l[int(nextRand(hitValue.seed) * sizes.lightsSize)];
+    vec3 explicitColor = vec3(0.0f);
+    // for (uint i = 0; i < sizes.lightsSize; i++) {
+        Light light = lights.l[int(nextRand(hitValue.seed) * sizes.lightsSize)];
+        // Light light = lights.l[i];
 
-    LightSample lightSam = lightSample(light, v);
-    float shadow = shadowRay(v.pos, shadowBias, lightSam.pos);
-    vec3 shadeColor = evalBRDF(v, mat, texColor, lightSam.pos);
-    vec3 explicitColor = shadow * (light.intensity / lightSam.pdf) * shadeColor;
+        vec3 lpos = lightSample(light);
+        float R = length(v.pos - lpos);
+        vec3 sdir = normalize(lpos - v.pos);
+        float shadow = shadowRay(v.pos, shadowBias, sdir, R);
 
-    BRDFSample brdfSam = brdfSample(v, mat, texColor);
+        float cosTheta1 = -dot(sdir, light.normal);
+        float cosTheta2 = dot(sdir, v.normal);
 
-    hitValue.prevPDF = brdfSam.pdf;
-    colorRay(v.pos, brdfSam.dir, hitValue.seed, hitValue.depth + 1);
-    vec3 indirectColor = hitValue.color;
+        float lgtPdf = (1.0 / lightArea(light)) * R * R / cosTheta1;
+        vec3 lgtVal = light.intensity * (texColor * cosTheta2 / pi);
+        explicitColor = lgtVal / lgtPdf * shadow;
+        // explicitColor += lgtVal / lgtPdf * shadow;
+    // }
+    // explicitColor /= sizes.lightsSize;
 
-    float p_e = lightSam.pdf;
-    float p_i = brdfSam.pdf; // Это очень плохо, так как нужен PDF теневого луча
-                             // Но они вроде совпадают
+    float cosTheta;
+    vec3 newRayD = CosineWeightedHemisphereSample(hitValue.seed, v, cosTheta);
+
+    float PDF = cosTheta / pi;
+    vec3 BRDF = texColor / pi;
+
+    float p_e = R * R / (lightArea(light) * cosTheta1);
+    float p_i = cosTheta / pi;
     float w_e = p_e * p_e / (p_e * p_e + p_i * p_i);
 
-    hitValue.color = explicitColor * w_e + (brdfSam.val / brdfSam.pdf) * brdfSam.cosTheta * indirectColor;
+    hitValue.prevNrm = v.normal;
+    colorRay(v.pos, newRayD, hitValue.seed, hitValue.depth + 1);
+    vec3 indirectColor = hitValue.color;
+
+    hitValue.color = explicitColor * w_e + (BRDF / PDF) * cosTheta * indirectColor;
 }

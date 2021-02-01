@@ -36,6 +36,7 @@ void main()
         vec4 direction = cam.viewInverse * vec4(normalize(target.xyz / target.w), 0);
 
         hitValue.prevPDF = 0.0f;
+        hitValue.prevNrm = vec3(0.0f);
         hitValue.diffuse = false;
         colorRay(origin.xyz, direction.xyz, seed, 0);
         cumulativeColor *= hitValue.color;
