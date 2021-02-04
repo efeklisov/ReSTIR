@@ -53,6 +53,35 @@ namespace hd {
         return DefaultPipeline_t::conjure(ci);
     }
 
+    struct ComputePipelineCreateInfo {
+        PipelineLayout pipelineLayout;
+        Device device;
+        vk::PipelineShaderStageCreateInfo shaderInfo;
+    };
+
+    class ComputePipeline_t : public Pipeline_t {
+        private:
+            vk::Pipeline _pipeline;
+            vk::Device _device;
+
+        public:
+            static Pipeline conjure(ComputePipelineCreateInfo ci) {
+                return std::static_pointer_cast<Pipeline_t>(std::make_shared<ComputePipeline_t>(ci));
+            }
+
+            ComputePipeline_t(ComputePipelineCreateInfo ci);
+
+            inline vk::Pipeline raw() {
+                return _pipeline;
+            }
+
+            ~ComputePipeline_t();
+    };
+
+    inline Pipeline conjure(ComputePipelineCreateInfo ci) {
+        return ComputePipeline_t::conjure(ci);
+    }
+
     struct RaytraycingPipelineCreateInfo {
         PipelineLayout pipelineLayout;
         Device device;

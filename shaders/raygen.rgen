@@ -19,12 +19,12 @@ layout(location = 0) rayPayloadEXT hitPayload hitValue;
 
 void main() 
 {
-    uint seed = initialSeed(gl_LaunchIDEXT.x * cam.frameIndex, gl_LaunchIDEXT.y * cam.frameIndex, 16);
+    uint seed = initialSeed(gl_LaunchIDEXT.x * (cam.frameIndex + 1), gl_LaunchIDEXT.y * (cam.frameIndex + 1), 16);
 
     hitValue.color = vec3(0.0f);
     vec4 origin = cam.viewInverse * vec4(0, 0, 0, 1);
     
-    vec3 cumulativeColor = vec3(1.0, 1.0, 1.0);
+    vec3 cumulativeColor = vec3(0.0, 0.0, 0.0);
 
     uint N = 4;
 	for (uint i = 0; i < N; i++) {
@@ -39,9 +39,9 @@ void main()
         hitValue.prevNrm = vec3(0.0f);
         hitValue.diffuse = false;
         colorRay(origin.xyz, direction.xyz, seed, 0);
-        cumulativeColor *= hitValue.color;
+        cumulativeColor += hitValue.color;
     }
-    cumulativeColor /= N;
+    cumulativeColor /= float(N);
 
-	imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(clamp(hitValue.color, 0.0, 1.0), 0.0));
+	imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(cumulativeColor, 0.0));
 }

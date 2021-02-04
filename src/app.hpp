@@ -62,6 +62,15 @@ struct UniSizes {
     uint32_t lightsSize;
 };
 
+struct PushWindowSize {
+    uint32_t width;
+    uint32_t height;
+};
+
+struct UniCount {
+    uint32_t count;
+};
+
 class App {
     private:
         bool framebufferResized = false;
@@ -79,9 +88,6 @@ class App {
         std::vector<hd::Semaphore> renderFinished;
         std::vector<hd::Fence> inFlightFences;
 
-        hd::Model scene;
-        std::vector<hd::Light> lights;
-
         struct vram {
             using vram_vertices = hd::DataBuffer<hd::Vertex>;
             using vram_indices  = hd::DataBuffer<uint32_t>;
@@ -92,132 +98,39 @@ class App {
             std::vector<vram_indices>  indices;
             std::vector<vram_texture>  diffuse;
             std::vector<vram_material> materials;
-            hd::DataBuffer<hd::VRAM_Light>  lights;
+            hd::DataBuffer<hd::VRAM_Light> lights;
+            hd::DataBuffer<UniSizes> uniSizes;
 
             std::vector<hd::BLAS> blases;
             hd::TLAS tlas;
+
+            struct storage {
+                hd::Image image;
+                hd::ImageView view;
+
+                hd::Image summ;
+                hd::ImageView summView;
+            } storage;
+
+            hd::DataBuffer<UniformData> unibuffer;
+            hd::DataBuffer<UniCount> uniCount;
         } vram;
+
+        struct ram {
+            hd::Image saveImage;
+            hd::ImageView saveView;
+        } ram;
+
+        hd::DescriptorLayout compLayout;
+        hd::PipelineLayout compPipeLayout;
+        hd::Pipeline summPipeline;
 
         hd::DescriptorLayout rayLayout;
         hd::PipelineLayout rayPipeLayout;
         hd::Pipeline rayPipeline;
         hd::SBT sbt;
 
-        void init() {
-            window = hd::conjure({
-                    .width = 1280,
-                    .height = 720,
-                    .title = "Ray traycing",
-                    .cursorVisible = true,
-                    .windowUser = this,
-                    .framebufferSizeCallback = framebufferResizeCallback,
-                    });
-
-            auto instanceExtensions = window->getRequiredExtensions();
-            instanceExtensions.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
-
-            instance = hd::conjure({
-                    .applicationName = "Raytraycing",
-                    .applicationVersion = VK_MAKE_VERSION(1, 0, 0),
-                    .engineName = "Hova's Engine",
-                    .engineVersion = VK_MAKE_VERSION(2, 0, 0),
-                    .apiVersion = VK_API_VERSION_1_2,
-                    .validationLayers = { "VK_LAYER_KHRONOS_validation" },
-                    .extensions = instanceExtensions,
-                    });
-
-            surface = hd::conjure({
-                    .window = window,
-                    .instance = instance,
-                    });
-
-            vk::PhysicalDeviceFeatures feats{};
-            feats.samplerAnisotropy = true;
-
-            vk::PhysicalDeviceDescriptorIndexingFeatures desc_feats{};
-            desc_feats.runtimeDescriptorArray = true;
-            desc_feats.shaderSampledImageArrayNonUniformIndexing = true;
-            desc_feats.shaderStorageBufferArrayNonUniformIndexing = true;
-
-            vk::PhysicalDeviceAccelerationStructureFeaturesKHR acc_feats{};
-            acc_feats.accelerationStructure = true;
-            acc_feats.pNext = &desc_feats;
-
-            vk::PhysicalDeviceRayTracingPipelineFeaturesKHR ray_feats{};
-            ray_feats.rayTracingPipeline = true;
-            ray_feats.pNext = &acc_feats;
-
-            vk::PhysicalDeviceBufferDeviceAddressFeatures buffer_feats{};
-            buffer_feats.bufferDeviceAddress = true;
-            buffer_feats.pNext = &ray_feats;
-
-            vk::PhysicalDeviceFeatures2 all_feats{};
-            all_feats.features = feats;
-            all_feats.pNext = &buffer_feats;
-
-            device = hd::conjure({
-                    .instance = instance,
-                    .surface = surface,
-                    .extensions = { 
-                        VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-                        VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME,
-                        VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
-                        VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
-                        VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,
-                        VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
-                        VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME,
-                        VK_KHR_SPIRV_1_4_EXTENSION_NAME,
-                        VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME,
-                        VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,
-                    },
-                    .features = all_feats,
-                    .validationLayers = { "VK_LAYER_KHRONOS_validation" },
-                    });
-
-            allocator = hd::conjure({
-                    .instance = instance,
-                    .device = device,
-                    });
-
-            graphicsQueue = hd::conjure({
-                    .device = device,
-                    .type = hd::QueueType::eGraphics,
-                    });
-
-            presentQueue = hd::conjure({
-                    .device = device,
-                    .type = hd::QueueType::ePresent,
-                    });
-
-            graphicsPool = hd::conjure({
-                    .device = device,
-                    .family = hd::PoolFamily::eGraphics,
-                    });
-
-            imageAvailable.resize(MAX_FRAMES_IN_FLIGHT);
-            renderFinished.resize(MAX_FRAMES_IN_FLIGHT);
-            inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
-
-            for (uint32_t iter = 0; iter < MAX_FRAMES_IN_FLIGHT; iter++) {
-                imageAvailable[iter] = hd::Semaphore_t::conjure({.device = device});
-                renderFinished[iter] = hd::Semaphore_t::conjure({.device = device});
-                inFlightFences[iter] = hd::Fence_t::conjure({.device = device});
-            }
-
-            scene = hd::conjure({
-                    "models/scene.obj",
-                    [&](const char *filename){
-                        return hd::conjure({
-                                filename,
-                                graphicsPool,
-                                graphicsQueue,
-                                allocator,
-                                device,
-                                }); },
-                    });
-            
-            lights = hd::Model_t::parseLights("models/scene.json");
-
+        inline auto populateInitialVRAM(hd::Model scene, std::vector<hd::Light>& lights) {
             vram.vertices.reserve(scene->meshes.size());
             vram.indices.reserve(scene->meshes.size());
             vram.diffuse.reserve(scene->meshes.size());
@@ -352,6 +265,85 @@ class App {
 
             instbuffer.reset();
 
+            UniSizes uniSizes{};
+            uniSizes.meshesSize = scene->meshes.size();
+            uniSizes.lightsSize = lights.size();
+
+            vram.uniSizes = hd::conjure<UniSizes>({
+                    .commandPool = graphicsPool,
+                    .queue = graphicsQueue,
+                    .allocator = allocator,
+                    .device = device,
+                    .data = {uniSizes},
+                    .usage = vk::BufferUsageFlagBits::eUniformBuffer,
+                    .memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU,
+                    });
+
+        }
+
+        constexpr auto selectFeatures() {
+            struct features {
+                vk::PhysicalDeviceFeatures feats{};
+                vk::PhysicalDeviceDescriptorIndexingFeatures desc_feats{};
+                vk::PhysicalDeviceAccelerationStructureFeaturesKHR acc_feats{};
+                vk::PhysicalDeviceRayTracingPipelineFeaturesKHR ray_feats{};
+                vk::PhysicalDeviceBufferDeviceAddressFeatures buffer_feats{};
+                vk::PhysicalDeviceFeatures2 feats2{};
+
+                auto res() {
+                    return feats2;
+                }
+            } features;
+
+            features.feats.samplerAnisotropy = true;
+
+            features.desc_feats.runtimeDescriptorArray = true;
+            features.desc_feats.shaderSampledImageArrayNonUniformIndexing = true;
+            features.desc_feats.shaderStorageBufferArrayNonUniformIndexing = true;
+
+            features.acc_feats.accelerationStructure = true;
+            features.acc_feats.pNext = &features.desc_feats;
+
+            features.ray_feats.rayTracingPipeline = true;
+            features.ray_feats.pNext = &features.acc_feats;
+
+            features.buffer_feats.bufferDeviceAddress = true;
+            features.buffer_feats.pNext = &features.ray_feats;
+
+            features.feats2.features = features.feats;
+            features.feats2.pNext = &features.buffer_feats;
+
+            return features;
+        }
+
+        constexpr auto populateCompLayout() {
+            vk::DescriptorSetLayoutBinding resImageLayoutBinding{};
+            resImageLayoutBinding.binding = 0;
+            resImageLayoutBinding.descriptorType = vk::DescriptorType::eStorageImage;
+            resImageLayoutBinding.descriptorCount = 1;
+            resImageLayoutBinding.stageFlags = vk::ShaderStageFlagBits::eCompute;
+
+            vk::DescriptorSetLayoutBinding saveImageLayoutBinding{};
+            saveImageLayoutBinding.binding = 1;
+            saveImageLayoutBinding.descriptorType = vk::DescriptorType::eStorageImage;
+            saveImageLayoutBinding.descriptorCount = 1;
+            saveImageLayoutBinding.stageFlags = vk::ShaderStageFlagBits::eCompute;
+
+            vk::DescriptorSetLayoutBinding uniCountLayoutBinding{};
+            uniCountLayoutBinding.binding = 2;
+            uniCountLayoutBinding.descriptorType = vk::DescriptorType::eUniformBuffer;
+            uniCountLayoutBinding.descriptorCount = 1;
+            uniCountLayoutBinding.stageFlags = vk::ShaderStageFlagBits::eCompute;
+
+            compLayout = hd::conjure({
+                    .device = device,
+                    .bindings = { 
+                            resImageLayoutBinding, saveImageLayoutBinding, uniCountLayoutBinding,
+                        },
+                    });
+        }
+
+        constexpr auto populateRayLayout() {
             vk::DescriptorSetLayoutBinding aStructLayoutBinding{};
             aStructLayoutBinding.binding = 0;
             aStructLayoutBinding.descriptorType = vk::DescriptorType::eAccelerationStructureKHR;
@@ -414,12 +406,9 @@ class App {
                             lightsBinding, uniSizesBinding
                         },
                     });
+        }
 
-            rayPipeLayout = hd::conjure({
-                    .device = device,
-                    .descriptorLayouts = { rayLayout->raw() },
-                    });
-
+        inline auto populateRayPipeline() {
             hd::Shader raygenShader = hd::conjure({
                     .device = device,
                     .filename = "shaders/raygen.rgen.spv",
@@ -478,6 +467,136 @@ class App {
                     .shaderInfos = { raygenShader->info(), missShader->info(), shadowShader->info(), closestHitShader->info() },
                     .shaderGroups = { raygenGroupCI, missGroupCI, shadowGroupCI, closesthitGroupCI },
                     });
+        }
+
+        auto init() {
+            window = hd::conjure({
+                    .width = 1280,
+                    .height = 720,
+                    .title = "Ray traycing",
+                    .cursorVisible = true,
+                    .windowUser = this,
+                    .framebufferSizeCallback = framebufferResizeCallback,
+                    });
+
+            auto instanceExtensions = window->getRequiredExtensions();
+            instanceExtensions.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
+
+            instance = hd::conjure({
+                    .applicationName = "Raytraycing",
+                    .applicationVersion = VK_MAKE_VERSION(1, 0, 0),
+                    .engineName = "Hova's Engine",
+                    .engineVersion = VK_MAKE_VERSION(2, 0, 0),
+                    .apiVersion = VK_API_VERSION_1_2,
+                    .validationLayers = { "VK_LAYER_KHRONOS_validation" },
+                    .extensions = instanceExtensions,
+                    });
+
+            surface = hd::conjure({
+                    .window = window,
+                    .instance = instance,
+                    });
+
+            device = hd::conjure({
+                    .instance = instance,
+                    .surface = surface,
+                    .extensions = { 
+                        VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+                        VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME,
+                        VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
+                        VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
+                        VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,
+                        VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
+                        VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME,
+                        VK_KHR_SPIRV_1_4_EXTENSION_NAME,
+                        VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME,
+                        VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,
+                    },
+                    .features = selectFeatures().res(),
+                    .validationLayers = { "VK_LAYER_KHRONOS_validation" },
+                    });
+
+            allocator = hd::conjure({
+                    .instance = instance,
+                    .device = device,
+                    });
+
+            graphicsQueue = hd::conjure({
+                    .device = device,
+                    .type = hd::QueueType::eGraphics,
+                    });
+
+            presentQueue = hd::conjure({
+                    .device = device,
+                    .type = hd::QueueType::ePresent,
+                    });
+
+            graphicsPool = hd::conjure({
+                    .device = device,
+                    .family = hd::PoolFamily::eGraphics,
+                    });
+
+            imageAvailable.resize(MAX_FRAMES_IN_FLIGHT);
+            renderFinished.resize(MAX_FRAMES_IN_FLIGHT);
+            inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
+
+            for (uint32_t iter = 0; iter < MAX_FRAMES_IN_FLIGHT; iter++) {
+                imageAvailable[iter] = hd::Semaphore_t::conjure({.device = device});
+                renderFinished[iter] = hd::Semaphore_t::conjure({.device = device});
+                inFlightFences[iter] = hd::Fence_t::conjure({.device = device});
+            }
+
+            // BEGIN RAM
+            auto scene = hd::conjure({
+                    "models/scene.obj",
+                    [&](const char *filename){
+                        return hd::conjure({
+                                filename,
+                                graphicsPool,
+                                graphicsQueue,
+                                allocator,
+                                device,
+                                }); },
+                    });
+            
+            auto lights = hd::Model_t::parseLights("models/scene.json");
+            // END RAM
+
+            populateInitialVRAM(scene, lights);
+
+            populateCompLayout();
+
+            vk::PushConstantRange pushWindowSize{};
+            pushWindowSize.stageFlags = vk::ShaderStageFlagBits::eCompute;
+            pushWindowSize.offset = 0;
+            pushWindowSize.size = sizeof(PushWindowSize);
+
+            compPipeLayout = hd::conjure({
+                    .device = device,
+                    .descriptorLayouts = { compLayout->raw() },
+                    .pushConstants = { pushWindowSize },
+                    });
+
+            hd::Shader compShader = hd::conjure({
+                    .device = device,
+                    .filename = "shaders/summ.comp.spv",
+                    .stage = vk::ShaderStageFlagBits::eCompute,
+                    });
+
+            summPipeline = hd::conjure({
+                .pipelineLayout = compPipeLayout,
+                .device = device,
+                .shaderInfo = compShader->info(),
+            });
+
+            populateRayLayout();
+
+            rayPipeLayout = hd::conjure({
+                    .device = device,
+                    .descriptorLayouts = { rayLayout->raw() },
+                    });
+
+            populateRayPipeline();
 
             sbt = hd::conjure({
                     .pipeline = rayPipeline,
@@ -491,24 +610,125 @@ class App {
 
         hd::SwapChain swapChain;
 
-        struct storage {
-            hd::Image image;
-            hd::ImageView view;
-
-            hd::Image saveImage;
-        } storage;
-
-        hd::DataBuffer<UniformData> unibuffer;
-        hd::DataBuffer<UniSizes> vram_uniSizes;
         hd::DescriptorPool rayDescriptorPool;
+        hd::DescriptorSet summDescriptorSet;
         hd::DescriptorSet rayDescriptorSet;
         std::vector<hd::CommandBuffer> rayCmdBuffers;
         std::vector<hd::CommandBuffer> raySaveCmdBuffers;
+        std::vector<hd::CommandBuffer> raySummCmdBuffers;
         std::vector<hd::Fence> inFlightImages;
+
+        inline auto fillSummLayout() {
+            std::vector<vk::WriteDescriptorSet> writes;
+            writes.reserve(3);
+
+            auto write = [&](uint32_t binding, vk::DescriptorType type, uint32_t index = 0) {
+                vk::WriteDescriptorSet writeSet{};
+                writeSet.dstBinding = binding;
+                writeSet.dstArrayElement = index;
+                writeSet.descriptorType = type;
+                writeSet.descriptorCount = 1;
+                writeSet.dstSet = summDescriptorSet->raw();
+
+                return writeSet;
+            };
+
+            auto storageImageInfo = vram.storage.view->writeInfo(vk::ImageLayout::eGeneral);
+            auto storageImageWrite = write(0, vk::DescriptorType::eStorageImage);
+            storageImageWrite.setPImageInfo(&storageImageInfo);
+            writes.push_back(storageImageWrite);
+
+            auto storageSummInfo = vram.storage.summView->writeInfo(vk::ImageLayout::eGeneral);
+            auto storageSummWrite = write(1, vk::DescriptorType::eStorageImage);
+            storageSummWrite.setPImageInfo(&storageSummInfo);
+            writes.push_back(storageSummWrite);
+
+            auto uniCountInfo = vram.uniCount->writeInfo();
+            auto uniCountWrite = write(2, vk::DescriptorType::eUniformBuffer);
+            uniCountWrite.setPBufferInfo(&uniCountInfo);
+            writes.push_back(uniCountWrite);
+
+            device->raw().updateDescriptorSets(writes, nullptr);
+        }
+
+        inline auto fillRayLayout() {
+            std::vector<vk::WriteDescriptorSet> writes;
+            writes.reserve(5 + vram.vertices.size());
+
+            auto write = [&](uint32_t binding, vk::DescriptorType type, uint32_t index = 0) {
+                vk::WriteDescriptorSet writeSet{};
+                writeSet.dstBinding = binding;
+                writeSet.dstArrayElement = index;
+                writeSet.descriptorType = type;
+                writeSet.descriptorCount = 1;
+                writeSet.dstSet = rayDescriptorSet->raw();
+
+                return writeSet;
+            };
+
+            auto aStructDI = vram.tlas->writeInfo();
+            auto aStructWrite = write(0, vk::DescriptorType::eAccelerationStructureKHR);
+            aStructWrite.setPNext(&aStructDI);
+            writes.push_back(aStructWrite);
+
+            auto storageImageInfo = vram.storage.view->writeInfo(vk::ImageLayout::eGeneral);
+            auto storageImageWrite = write(1, vk::DescriptorType::eStorageImage);
+            storageImageWrite.setPImageInfo(&storageImageInfo);
+            writes.push_back(storageImageWrite);
+
+            auto unibufferInfo = vram.unibuffer->writeInfo();
+            auto unibufferWrite = write(2, vk::DescriptorType::eUniformBuffer);
+            unibufferWrite.setPBufferInfo(&unibufferInfo);
+            writes.push_back(unibufferWrite);
+
+            auto lightsInfo = vram.lights->writeInfo();
+            auto lightsWrite = write(7, vk::DescriptorType::eStorageBuffer);
+            lightsWrite.setPBufferInfo(&lightsInfo);
+            writes.push_back(lightsWrite);
+
+            auto uniSizesInfo = vram.uniSizes->writeInfo();
+            auto uniSizesWrite = write(8, vk::DescriptorType::eUniformBuffer);
+            uniSizesWrite.setPBufferInfo(&uniSizesInfo);
+            writes.push_back(uniSizesWrite);
+
+            std::vector<vk::DescriptorImageInfo>  imgInfos;
+            std::vector<vk::DescriptorBufferInfo> vtxInfos;
+            std::vector<vk::DescriptorBufferInfo> idxInfos;
+            std::vector<vk::DescriptorBufferInfo> matInfos;
+
+            imgInfos.reserve(vram.diffuse.size());
+            vtxInfos.reserve(vram.vertices.size());
+            idxInfos.reserve(vram.indices.size());
+            matInfos.reserve(vram.materials.size());
+
+            for (uint32_t iter = 0; iter < vram.vertices.size(); iter++) {
+                imgInfos.push_back(vram.diffuse[iter]->writeInfo(vk::ImageLayout::eShaderReadOnlyOptimal));
+                auto imgWrite = write(3, vk::DescriptorType::eCombinedImageSampler, iter);
+                imgWrite.setPImageInfo(&imgInfos[iter]);
+                writes.push_back(imgWrite);
+
+                vtxInfos.push_back(vram.vertices[iter]->writeInfo());
+                auto vtxBufferWrite = write(4, vk::DescriptorType::eStorageBuffer, iter);
+                vtxBufferWrite.setPBufferInfo(&vtxInfos[iter]);
+                writes.push_back(vtxBufferWrite);
+
+                idxInfos.push_back(vram.indices[iter]->writeInfo());
+                auto idxBufferWrite = write(5, vk::DescriptorType::eStorageBuffer, iter);
+                idxBufferWrite.setPBufferInfo(&idxInfos[iter]);
+                writes.push_back(idxBufferWrite);
+
+                matInfos.push_back(vram.materials[iter]->writeInfo());
+                auto matBufferWrite = write(6, vk::DescriptorType::eStorageBuffer, iter);
+                matBufferWrite.setPBufferInfo(&matInfos[iter]);
+                writes.push_back(matBufferWrite);
+            }
+
+            device->raw().updateDescriptorSets(writes, nullptr);
+        }
 
         uint32_t globalFrameCount = 0;
 
-        void setup() {
+        auto setup() {
             swapChain = hd::conjure(hd::SwapChainCreateInfo{
                     .window = window,
                     .surface = surface,
@@ -517,7 +737,7 @@ class App {
                     .presentMode = vk::PresentModeKHR::eMailbox,
                     });
 
-            storage.image = hd::conjure({
+            vram.storage.image = hd::conjure({
                     .allocator = allocator,
                     .extent = swapChain->extent(),
                     .format = swapChain->format(),
@@ -528,13 +748,51 @@ class App {
             {
                 auto cmd = graphicsPool->singleTimeBegin();
                 cmd->transitionImageLayout({
-                        .image = storage.image,
+                        .image = vram.storage.image,
                         .layout = vk::ImageLayout::eGeneral,
                         });
                 graphicsPool->singleTimeEnd(cmd, graphicsQueue);
             }
 
-            storage.saveImage = hd::conjure({
+            vram.storage.view = hd::conjure({
+                    .image = vram.storage.image->raw(),
+                    .device = device,
+                    .format = vram.storage.image->format(),
+                    .range = vram.storage.image->range(),
+                    .type = vk::ImageViewType::e2D,
+                    });
+
+            vram.storage.summ = hd::conjure({
+                    .allocator = allocator,
+                    .extent = swapChain->extent(),
+                    .format = swapChain->format(),
+                    .imageUsage = vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eTransferDst,
+                    .memoryUsage = VMA_MEMORY_USAGE_GPU_ONLY,
+                    });
+
+            {
+                auto cmd = graphicsPool->singleTimeBegin();
+                cmd->transitionImageLayout({
+                        .image = vram.storage.summ,
+                        .layout = vk::ImageLayout::eGeneral,
+                        });
+
+                vk::ClearColorValue color = std::array<float, 4>{0.0f, 0.0f, 0.0f, 1.0f};
+                vk::ImageSubresourceRange range = {vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1};
+
+                cmd->raw().clearColorImage(vram.storage.summ->raw(), vk::ImageLayout::eGeneral, color, range);
+                graphicsPool->singleTimeEnd(cmd, graphicsQueue);
+            }
+
+            vram.storage.summView = hd::conjure({
+                    .image = vram.storage.summ->raw(),
+                    .device = device,
+                    .format = vram.storage.summ->format(),
+                    .range = vram.storage.summ->range(),
+                    .type = vk::ImageViewType::e2D,
+                    });
+
+            ram.saveImage = hd::conjure({
                     .allocator = allocator,
                     .extent = swapChain->extent(),
                     .format = swapChain->format(),
@@ -546,23 +804,23 @@ class App {
             {
                 auto cmd = graphicsPool->singleTimeBegin();
                 cmd->transitionImageLayout({
-                        .image = storage.saveImage,
+                        .image = ram.saveImage,
                         .layout = vk::ImageLayout::eGeneral,
                         });
                 graphicsPool->singleTimeEnd(cmd, graphicsQueue);
             }
 
-            storage.view = hd::conjure({
-                    .image = storage.image->raw(),
+            ram.saveView = hd::conjure({
+                    .image = ram.saveImage->raw(),
                     .device = device,
-                    .format = storage.image->format(),
-                    .range = storage.image->range(),
+                    .format = ram.saveImage->format(),
+                    .range = ram.saveImage->range(),
                     .type = vk::ImageViewType::e2D,
                     });
 
             UniformData uniData{};
 
-            unibuffer = hd::conjure<UniformData>({
+            vram.unibuffer = hd::conjure<UniformData>({
                     .commandPool = graphicsPool,
                     .queue = graphicsQueue,
                     .allocator = allocator,
@@ -572,102 +830,29 @@ class App {
                     .memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU,
                     });
 
-            UniSizes uniSizes{};
-            uniSizes.meshesSize = scene->meshes.size();
-            uniSizes.lightsSize = lights.size();
+            UniCount uniCount{};
 
-            vram_uniSizes = hd::conjure<UniSizes>({
+            vram.uniCount = hd::conjure<UniCount>({
                     .commandPool = graphicsPool,
                     .queue = graphicsQueue,
                     .allocator = allocator,
                     .device = device,
-                    .data = {uniSizes},
+                    .data = {uniCount},
                     .usage = vk::BufferUsageFlagBits::eUniformBuffer,
                     .memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU,
                     });
 
             rayDescriptorPool = hd::conjure({
                     .device = device,
-                    .layouts = {{rayLayout, 1}},
+                    .layouts = {{rayLayout, 1}, {compLayout, 1}},
                     .instances = 1,
                    });
 
+            summDescriptorSet = rayDescriptorPool->allocate(1, compLayout).at(0);
             rayDescriptorSet = rayDescriptorPool->allocate(1, rayLayout).at(0);
 
-            {
-                std::vector<vk::WriteDescriptorSet> writes;
-                writes.reserve(5 + vram.vertices.size());
-
-                auto write = [&](uint32_t binding, vk::DescriptorType type, uint32_t index = 0) {
-                    vk::WriteDescriptorSet writeSet{};
-                    writeSet.dstBinding = binding;
-                    writeSet.dstArrayElement = index;
-                    writeSet.descriptorType = type;
-                    writeSet.descriptorCount = 1;
-                    writeSet.dstSet = rayDescriptorSet->raw();
-
-                    return writeSet;
-                };
-
-                auto aStructDI = vram.tlas->writeInfo();
-                auto aStructWrite = write(0, vk::DescriptorType::eAccelerationStructureKHR);
-                aStructWrite.setPNext(&aStructDI);
-                writes.push_back(aStructWrite);
-
-                auto storageImageInfo = storage.view->writeInfo(vk::ImageLayout::eGeneral);
-                auto storageImageWrite = write(1, vk::DescriptorType::eStorageImage);
-                storageImageWrite.setPImageInfo(&storageImageInfo);
-                writes.push_back(storageImageWrite);
-
-                auto unibufferInfo = unibuffer->writeInfo();
-                auto unibufferWrite = write(2, vk::DescriptorType::eUniformBuffer);
-                unibufferWrite.setPBufferInfo(&unibufferInfo);
-                writes.push_back(unibufferWrite);
-
-                auto lightsInfo = vram.lights->writeInfo();
-                auto lightsWrite = write(7, vk::DescriptorType::eStorageBuffer);
-                lightsWrite.setPBufferInfo(&lightsInfo);
-                writes.push_back(lightsWrite);
-
-                auto uniSizesInfo = vram_uniSizes->writeInfo();
-                auto uniSizesWrite = write(8, vk::DescriptorType::eUniformBuffer);
-                uniSizesWrite.setPBufferInfo(&uniSizesInfo);
-                writes.push_back(uniSizesWrite);
-
-                std::vector<vk::DescriptorImageInfo>  imgInfos;
-                std::vector<vk::DescriptorBufferInfo> vtxInfos;
-                std::vector<vk::DescriptorBufferInfo> idxInfos;
-                std::vector<vk::DescriptorBufferInfo> matInfos;
-
-                imgInfos.reserve(vram.diffuse.size());
-                vtxInfos.reserve(vram.vertices.size());
-                idxInfos.reserve(vram.indices.size());
-                matInfos.reserve(vram.materials.size());
-
-                for (uint32_t iter = 0; iter < vram.vertices.size(); iter++) {
-                    imgInfos.push_back(vram.diffuse[iter]->writeInfo(vk::ImageLayout::eShaderReadOnlyOptimal));
-                    auto imgWrite = write(3, vk::DescriptorType::eCombinedImageSampler, iter);
-                    imgWrite.setPImageInfo(&imgInfos[iter]);
-                    writes.push_back(imgWrite);
-
-                    vtxInfos.push_back(vram.vertices[iter]->writeInfo());
-                    auto vtxBufferWrite = write(4, vk::DescriptorType::eStorageBuffer, iter);
-                    vtxBufferWrite.setPBufferInfo(&vtxInfos[iter]);
-                    writes.push_back(vtxBufferWrite);
-
-                    idxInfos.push_back(vram.indices[iter]->writeInfo());
-                    auto idxBufferWrite = write(5, vk::DescriptorType::eStorageBuffer, iter);
-                    idxBufferWrite.setPBufferInfo(&idxInfos[iter]);
-                    writes.push_back(idxBufferWrite);
-
-                    matInfos.push_back(vram.materials[iter]->writeInfo());
-                    auto matBufferWrite = write(6, vk::DescriptorType::eStorageBuffer, iter);
-                    matBufferWrite.setPBufferInfo(&matInfos[iter]);
-                    writes.push_back(matBufferWrite);
-                }
-
-                device->raw().updateDescriptorSets(writes, nullptr);
-            }
+            fillSummLayout();
+            fillRayLayout();
 
             vk::ImageSubresourceRange sRange = { vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1 };
 
@@ -695,7 +880,7 @@ class App {
                         });
 
                 buffers[i]->transitionImageLayout({
-                        storage.image->raw(),
+                        vram.storage.image->raw(),
                         vk::ImageLayout::eGeneral,
                         vk::ImageLayout::eTransferSrcOptimal,
                         sRange,
@@ -709,14 +894,20 @@ class App {
                 copyRegion.setExtent({ swapChain->extent().width, swapChain->extent().height, 1 });
 
                 buffers[i]->raw().copyImage(
-                        storage.image->raw(), vk::ImageLayout::eTransferSrcOptimal, 
+                        vram.storage.image->raw(), vk::ImageLayout::eTransferSrcOptimal, 
                         swapChain->colorAttachment(i)->raw(), vk::ImageLayout::eTransferDstOptimal, 
                         copyRegion
                         );
             };
 
+            const struct PushWindowSize dims = {
+                vram.storage.image->extent().width,
+                vram.storage.image->extent().height,
+            };
+
             rayCmdBuffers = graphicsPool->allocate(swapChain->length());
             raySaveCmdBuffers = graphicsPool->allocate(swapChain->length());
+            raySummCmdBuffers = graphicsPool->allocate(swapChain->length());
             for (uint32_t i = 0; i < swapChain->length(); i++) {
                 rayCmdBuffers[i]->begin();
                 fillCmdBuffer(rayCmdBuffers, i);
@@ -729,13 +920,38 @@ class App {
                         });
 
                 rayCmdBuffers[i]->transitionImageLayout({
-                        storage.image->raw(),
+                        vram.storage.image->raw(),
                         vk::ImageLayout::eTransferSrcOptimal,
                         vk::ImageLayout::eGeneral,
                         sRange,
                         });
 
                 rayCmdBuffers[i]->end();
+
+                raySummCmdBuffers[i]->begin();
+                fillCmdBuffer(raySummCmdBuffers, i);
+
+                raySummCmdBuffers[i]->transitionImageLayout({
+                        swapChain->colorAttachment(i)->raw(),
+                        vk::ImageLayout::eTransferDstOptimal,
+                        vk::ImageLayout::ePresentSrcKHR,
+                        sRange,
+                        });
+
+                raySummCmdBuffers[i]->transitionImageLayout({
+                        vram.storage.image->raw(),
+                        vk::ImageLayout::eTransferSrcOptimal,
+                        vk::ImageLayout::eGeneral,
+                        sRange,
+                        });
+
+                raySummCmdBuffers[i]->raw().pushConstants(compPipeLayout->raw(), vk::ShaderStageFlagBits::eCompute, 0, sizeof(PushWindowSize), &dims);
+
+                raySummCmdBuffers[i]->raw().bindDescriptorSets(vk::PipelineBindPoint::eCompute, compPipeLayout->raw(), 0, summDescriptorSet->raw(), nullptr);
+                raySummCmdBuffers[i]->raw().bindPipeline(vk::PipelineBindPoint::eCompute, summPipeline->raw());
+                raySummCmdBuffers[i]->raw().dispatch(swapChain->extent().width / 16, swapChain->extent().height / 16, 1);
+
+                raySummCmdBuffers[i]->end();
 
                 raySaveCmdBuffers[i]->begin();
                 fillCmdBuffer(raySaveCmdBuffers, i);
@@ -747,21 +963,35 @@ class App {
                         sRange,
                         });
 
+                raySaveCmdBuffers[i]->transitionImageLayout({
+                        vram.storage.image->raw(),
+                        vk::ImageLayout::eTransferSrcOptimal,
+                        vk::ImageLayout::eGeneral,
+                        sRange,
+                        });
+
+                raySaveCmdBuffers[i]->transitionImageLayout({
+                        vram.storage.summ->raw(),
+                        vk::ImageLayout::eGeneral,
+                        vk::ImageLayout::eTransferSrcOptimal,
+                        sRange,
+                        });
+
                 vk::ImageCopy copyRegion{};
                 copyRegion.srcSubresource = { vk::ImageAspectFlagBits::eColor, 0, 0, 1 };
                 copyRegion.setSrcOffset({ 0, 0, 0 });
                 copyRegion.dstSubresource = { vk::ImageAspectFlagBits::eColor, 0, 0, 1 };
                 copyRegion.setDstOffset({ 0, 0, 0 });
-                copyRegion.setExtent({ storage.image->extent().width, storage.image->extent().height, 1 });
+                copyRegion.setExtent({ vram.storage.summ->extent().width, vram.storage.summ->extent().height, 1 });
 
                 raySaveCmdBuffers[i]->raw().copyImage(
-                        storage.image->raw(), vk::ImageLayout::eTransferSrcOptimal, 
-                        storage.saveImage->raw(), vk::ImageLayout::eGeneral, 
+                        vram.storage.summ->raw(), vk::ImageLayout::eTransferSrcOptimal, 
+                        ram.saveImage->raw(), vk::ImageLayout::eGeneral, 
                         copyRegion
                         );
 
                 raySaveCmdBuffers[i]->transitionImageLayout({
-                        storage.image->raw(),
+                        vram.storage.summ->raw(),
                         vk::ImageLayout::eTransferSrcOptimal,
                         vk::ImageLayout::eGeneral,
                         sRange,
@@ -777,10 +1007,11 @@ class App {
             device->waitIdle();
 
             rayCmdBuffers.clear();
-            unibuffer.reset();
-            storage.saveImage.reset();
-            storage.view.reset();
-            storage.image.reset();
+            vram.unibuffer.reset();
+            ram.saveView.reset();
+            ram.saveImage.reset();
+            vram.storage.view.reset();
+            vram.storage.image.reset();
             swapChain.reset();
 
             device->updateSurfaceInfo();
@@ -794,6 +1025,8 @@ class App {
 
             device->waitIdle();
         }
+
+        uint32_t screenTime = 6;
 
         void updateUnibuffer() {
             const float aspect = static_cast<float>(swapChain->extent().width) / static_cast<float>(swapChain->extent().height);
@@ -818,9 +1051,11 @@ class App {
             uniData.viewInverse = glm::inverse(rotateZ * rotateY * translate * glm::mat4(1.0f));
             uniData.frameIndex = globalFrameCount;
 
-            auto data = unibuffer->map();
-            memcpy(data, &uniData, sizeof(UniformData));
-            unibuffer->unmap();
+            {
+                auto data = vram.unibuffer->map();
+                memcpy(data, &uniData, sizeof(UniformData));
+                vram.unibuffer->unmap();
+            }
 
             cameraForward = glm::normalize(glm::vec3(uniData.viewInverse[2]));
             cameraLeft = glm::normalize(glm::vec3(uniData.viewInverse[0]));
@@ -843,6 +1078,15 @@ class App {
                 rotateZAngle += -cameraRotateSpeed;
             if (glfwGetKey(window->raw(), GLFW_KEY_E) == GLFW_PRESS)
                 rotateZAngle += cameraRotateSpeed;
+
+            UniCount uniCount{};
+            uniCount.count = (globalFrameCount == screenTime) ? globalFrameCount : 1;
+
+            {
+                auto data = vram.uniCount->map();
+                memcpy(data, &uniCount, sizeof(UniCount));
+                vram.uniCount->unmap();
+            }
         }
 
         uint32_t currentFrame = 0;
@@ -851,7 +1095,9 @@ class App {
             inFlightFences[currentFrame]->wait();
 
             if (currentFrame == screenshotFrame) {
-                std::thread{hd::saveImg, storage.saveImage, device, allocator, globalFrameCount - swapChain->length()}.detach();
+                std::thread{hd::saveImg, ram.saveImage, device, allocator, globalFrameCount - swapChain->length()}.detach();
+                /* hd::saveImg(ram.saveImage, device, allocator, globalFrameCount - swapChain->length()); */
+                /* exit(0); */
                 screenshotFrame = -1;
             }
 
@@ -887,10 +1133,12 @@ class App {
 
                 vk::CommandBuffer raw;
 
-                if (globalFrameCount == 10) {
+                if (globalFrameCount == screenTime) {
                     raw = raySaveCmdBuffers[imageIndex]->raw();
                     screenshotFrame = currentFrame;
-                } else
+                } else if (globalFrameCount < screenTime)
+                    raw = raySummCmdBuffers[imageIndex]->raw();
+                else
                     raw = rayCmdBuffers[imageIndex]->raw();
 
                 vk::SubmitInfo submitInfo = {};

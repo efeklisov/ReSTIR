@@ -128,6 +128,24 @@ DefaultPipeline_t::~DefaultPipeline_t() {
     _device.destroy(_pipeline);
 }
 
+ComputePipeline_t::ComputePipeline_t(ComputePipelineCreateInfo ci) {
+    _device = ci.device->raw();
+
+    vk::ComputePipelineCreateInfo pipelineInfo{};
+    pipelineInfo.setStage(ci.shaderInfo);
+    pipelineInfo.setLayout(ci.pipelineLayout->raw());
+
+    auto res = _device.createComputePipeline(nullptr, pipelineInfo);
+    if (res.result != vk::Result::eSuccess)
+        throw std::runtime_error("Failed to create a compute pipeline");
+
+    _pipeline = res.value;
+}
+
+ComputePipeline_t::~ComputePipeline_t() {
+    _device.destroy(_pipeline);
+}
+
 RaytraycingPipeline_t::RaytraycingPipeline_t(RaytraycingPipelineCreateInfo ci) {
     _device = ci.device->raw();
 
