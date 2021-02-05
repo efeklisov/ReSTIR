@@ -19,15 +19,29 @@ float nextRand(inout uint seed)
   return float(seed & 0x00FFFFFF) / float(0x01000000);
 }
 
-vec3 CosineWeightedHemisphereSample(inout uint seed, Vertex v, out float cosTheta)
-{
-  vec2 rand = vec2(nextRand(seed), nextRand(seed));
+vec3 RandomUnitVectorInHemisphereOf(inout uint seed, Vertex v) {
+    float phi = 2 * 3.14159265f * float(nextRand(seed));
+    float h = 2 * float(nextRand(seed)) - 1;
 
-  float r = sqrt(rand.x);
-  float phi = 2.0f * 3.14159265f * rand.y;
+    float x = sin(phi) * sqrt(1 - h * h);
+    float y = cos(phi) * sqrt(1 - h * h);
+    float z = h;
 
-  cosTheta = 3.14159265f * rand.x;
-  return v.tangent * (r * cos(phi)) + v.bitangent * (r * sin(phi)) + v.normal * sqrt(1 - rand.x);
+    return normalize(v.tangent * y + v.bitangent * x + v.normal * z);
+}
+
+vec3 RandomCosineVectorOf(inout uint seed, Vertex v) {
+    float e = 1.0f;
+    float phi = 2 * 3.14159265f * float(nextRand(seed));
+
+    float cosTheta = pow(1.0f - float(nextRand(seed)), 1.0f / (e + 1.0f));
+    float sinTheta = sqrt(1 - cosTheta * cosTheta);
+
+    float x = sinTheta * cos(phi);
+    float y = sinTheta * sin(phi);
+    float z = cosTheta;
+
+    return normalize(v.tangent * y + v.bitangent * x + v.normal * z);
 }
 
 void colorRay(vec3 origin, vec3 direction, uint seed, uint depth) {

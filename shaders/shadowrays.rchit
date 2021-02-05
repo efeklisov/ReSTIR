@@ -141,8 +141,8 @@ void main()
     // }
     // explicitColor /= sizes.lightsSize;
 
-    float cosTheta;
-    vec3 newRayD = CosineWeightedHemisphereSample(hitValue.seed, v, cosTheta);
+    vec3 newRayD = RandomCosineVectorOf(hitValue.seed, v);
+    float cosTheta = dot(normalize(newRayD), v.normal);
 
     float PDF = cosTheta / pi;
     vec3 BRDF = texColor / pi;

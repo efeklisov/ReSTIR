@@ -9,5 +9,5 @@
 #include <fstream>
 
 namespace hd {
-    void saveImg(hd::Image img, hd::Device device, hd::Allocator alloc, uint32_t frame);
+    void saveImg(hd::Image img, hd::Device device, hd::Allocator alloc, std::string_view method, uint32_t N, uint32_t frame);
 };

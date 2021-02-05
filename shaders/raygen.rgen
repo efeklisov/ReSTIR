@@ -11,6 +11,7 @@ layout(binding = 2, set = 0) uniform CameraProperties
 	mat4 viewInverse;
 	mat4 projInverse;
 	uint frameIndex;
+	uint N;
 } cam;
 
 layout(location = 0) rayPayloadEXT hitPayload hitValue;
@@ -26,7 +27,7 @@ void main()
     
     vec3 cumulativeColor = vec3(0.0, 0.0, 0.0);
 
-    uint N = 4;
+    uint N = cam.N;
 	for (uint i = 0; i < N; i++) {
         const vec2 pixelCenter = vec2(gl_LaunchIDEXT.xy) + vec2(nextRand(seed), nextRand(seed));
         const vec2 inUV = pixelCenter / vec2(gl_LaunchSizeEXT.xy);
@@ -43,5 +44,5 @@ void main()
     }
     cumulativeColor /= float(N);
 
-	imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(cumulativeColor, 0.0));
+	imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(clamp(cumulativeColor, 0.0f, 1.0f), 0.0f));
 }

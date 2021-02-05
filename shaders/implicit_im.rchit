@@ -71,7 +71,7 @@ void main()
         uint lightNo = instance - sizes.meshesSize;
 
         if (dot(rayDir, lights.l[lightNo].normal) > 0)
-            hitValue.color = lights.l[lightNo].color * lights.l[lightNo].intensity;
+            hitValue.color = lights.l[lightNo].color * lights.l[lightNo].intensity * 0.25;
         else
             hitValue.color = vec3(0.1f, 0.1f, 0.1f);
         return;
@@ -99,14 +99,17 @@ void main()
     // Indirect Result
     vec3 indirectColor = vec3(1.0, 1.0, 1.0);
 
-    float cosTheta;
-    vec3 direction = CosineWeightedHemisphereSample(hitValue.seed, v, cosTheta);
+    // float cosTheta;
+    // vec3 direction = CosineWeightedHemisphereSample(hitValue.seed, v, cosTheta);
+    // cosTheta = dot(normalize(direction), v.normal);
+    vec3 direction = RandomCosineVectorOf(hitValue.seed, v);
+    float cosTheta = dot(normalize(direction), v.normal);
     
-    colorRay(v.pos, direction, hitValue.seed, hitValue.depth + 1);
-    indirectColor *= hitValue.color * cosTheta;
-
     float PDF = cosTheta / pi;
     vec3 BRDF = texColor / pi;
+
+    colorRay(v.pos, direction, hitValue.seed, hitValue.depth + 1);
+    indirectColor *= hitValue.color;
 
     hitValue.color = (BRDF / PDF) * cosTheta * indirectColor;
 }

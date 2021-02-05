@@ -1,9 +1,9 @@
 #include <saveimg.hpp>
 
 namespace hd {
-    void saveImg(hd::Image img, hd::Device device, hd::Allocator alloc, uint32_t frame) {
+    void saveImg(hd::Image img, hd::Device device, hd::Allocator alloc, std::string_view method, uint32_t N, uint32_t frame) {
         std::stringstream str;
-        str << "screenshot_" << frame << ".ppm" << std::endl;
+        str << "screenshot_" << method << '_' << frame << '_' << N << ".ppm" << std::endl;
 
         vk::ImageSubresource subResource{ vk::ImageAspectFlagBits::eColor, 0, 0 };
         vk::SubresourceLayout subResourceLayout = device->raw().getImageSubresourceLayout(img->raw(), subResource);

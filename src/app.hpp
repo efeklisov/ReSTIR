@@ -45,6 +45,14 @@
 
 #define MAX_FRAMES_IN_FLIGHT 3
 
+struct params_t {
+    uint32_t N = 4;
+    std::string method = "mis_orig";
+    bool pseudoOffline = false;
+    uint32_t frames = 6;
+    bool capture = false;
+};
+
 struct MVP {
     glm::mat4 model;
     glm::mat4 view;
@@ -55,6 +63,7 @@ struct UniformData {
     glm::mat4 viewInverse;
     glm::mat4 projInverse;
     uint32_t frameIndex;
+    uint32_t N;
 };
 
 struct UniSizes {
@@ -73,6 +82,8 @@ struct UniCount {
 
 class App {
     private:
+        params_t params;
+
         bool framebufferResized = false;
 
         hd::Window window;
@@ -427,9 +438,11 @@ class App {
                     .stage = vk::ShaderStageFlagBits::eMissKHR,
                     });
 
+            std::stringstream rchit;
+            rchit << "shaders/" << params.method << ".rchit.spv";
             hd::Shader closestHitShader = hd::conjure({
                     .device = device,
-                    .filename = "shaders/mis_orig.rchit.spv",
+                    .filename = rchit.str().c_str(),
                     .stage = vk::ShaderStageFlagBits::eClosestHitKHR,
                     });
 
@@ -856,13 +869,13 @@ class App {
 
             vk::ImageSubresourceRange sRange = { vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1 };
 
-            auto fillCmdBuffer = [&](std::vector<hd::CommandBuffer>& buffers, uint32_t i) {
-                buffers[i]->raw().bindPipeline(vk::PipelineBindPoint::eRayTracingKHR, rayPipeline->raw());
-                buffers[i]->raw().bindDescriptorSets(vk::PipelineBindPoint::eRayTracingKHR, rayPipeLayout->raw(), 0, rayDescriptorSet->raw(), nullptr);
+            auto fillCmdBuffer = [&](hd::CommandBuffer buffer, uint32_t i) {
+                buffer->raw().bindPipeline(vk::PipelineBindPoint::eRayTracingKHR, rayPipeline->raw());
+                buffer->raw().bindDescriptorSets(vk::PipelineBindPoint::eRayTracingKHR, rayPipeLayout->raw(), 0, rayDescriptorSet->raw(), nullptr);
 
                 vk::StridedDeviceAddressRegionKHR callableShaderSBTEntry{};
 
-                buffers[i]->raw().traceRaysKHR(
+                buffer->raw().traceRaysKHR(
                         sbt->raygen().region,
                         sbt->miss().region,
                         sbt->hit().region,
@@ -872,14 +885,14 @@ class App {
                         1
                         );
 
-                buffers[i]->transitionImageLayout({
+                buffer->transitionImageLayout({
                         swapChain->colorAttachment(i)->raw(),
                         vk::ImageLayout::eUndefined,
                         vk::ImageLayout::eTransferDstOptimal,
                         sRange,
                         });
 
-                buffers[i]->transitionImageLayout({
+                buffer->transitionImageLayout({
                         vram.storage.image->raw(),
                         vk::ImageLayout::eGeneral,
                         vk::ImageLayout::eTransferSrcOptimal,
@@ -893,11 +906,25 @@ class App {
                 copyRegion.setDstOffset({ 0, 0, 0 });
                 copyRegion.setExtent({ swapChain->extent().width, swapChain->extent().height, 1 });
 
-                buffers[i]->raw().copyImage(
+                buffer->raw().copyImage(
                         vram.storage.image->raw(), vk::ImageLayout::eTransferSrcOptimal, 
                         swapChain->colorAttachment(i)->raw(), vk::ImageLayout::eTransferDstOptimal, 
                         copyRegion
                         );
+
+                buffer->transitionImageLayout({
+                        swapChain->colorAttachment(i)->raw(),
+                        vk::ImageLayout::eTransferDstOptimal,
+                        vk::ImageLayout::ePresentSrcKHR,
+                        sRange,
+                        });
+
+                buffer->transitionImageLayout({
+                        vram.storage.image->raw(),
+                        vk::ImageLayout::eTransferSrcOptimal,
+                        vk::ImageLayout::eGeneral,
+                        sRange,
+                        });
             };
 
             const struct PushWindowSize dims = {
@@ -909,95 +936,67 @@ class App {
             raySaveCmdBuffers = graphicsPool->allocate(swapChain->length());
             raySummCmdBuffers = graphicsPool->allocate(swapChain->length());
             for (uint32_t i = 0; i < swapChain->length(); i++) {
-                rayCmdBuffers[i]->begin();
-                fillCmdBuffer(rayCmdBuffers, i);
+                {
+                    auto buffer = rayCmdBuffers[i];
+                    buffer->begin();
+                    fillCmdBuffer(buffer, i);
+                    buffer->end();
+                }
 
-                rayCmdBuffers[i]->transitionImageLayout({
-                        swapChain->colorAttachment(i)->raw(),
-                        vk::ImageLayout::eTransferDstOptimal,
-                        vk::ImageLayout::ePresentSrcKHR,
-                        sRange,
-                        });
+                if (!params.capture)
+                    continue;
 
-                rayCmdBuffers[i]->transitionImageLayout({
-                        vram.storage.image->raw(),
-                        vk::ImageLayout::eTransferSrcOptimal,
-                        vk::ImageLayout::eGeneral,
-                        sRange,
-                        });
+                {
+                    auto buffer = raySummCmdBuffers[i];
+                    buffer->begin();
+                    fillCmdBuffer(buffer, i);
 
-                rayCmdBuffers[i]->end();
+                    buffer->barrier({vk::AccessFlagBits{0}, vk::AccessFlagBits{0},
+                            vk::PipelineStageFlagBits::eRayTracingShaderKHR, vk::PipelineStageFlagBits::eComputeShader});
 
-                raySummCmdBuffers[i]->begin();
-                fillCmdBuffer(raySummCmdBuffers, i);
+                    buffer->raw().pushConstants(compPipeLayout->raw(), vk::ShaderStageFlagBits::eCompute, 0, sizeof(PushWindowSize), &dims);
 
-                raySummCmdBuffers[i]->transitionImageLayout({
-                        swapChain->colorAttachment(i)->raw(),
-                        vk::ImageLayout::eTransferDstOptimal,
-                        vk::ImageLayout::ePresentSrcKHR,
-                        sRange,
-                        });
+                    buffer->raw().bindDescriptorSets(vk::PipelineBindPoint::eCompute, compPipeLayout->raw(), 0, summDescriptorSet->raw(), nullptr);
+                    buffer->raw().bindPipeline(vk::PipelineBindPoint::eCompute, summPipeline->raw());
+                    buffer->raw().dispatch(swapChain->extent().width / 16, swapChain->extent().height / 16, 1);
 
-                raySummCmdBuffers[i]->transitionImageLayout({
-                        vram.storage.image->raw(),
-                        vk::ImageLayout::eTransferSrcOptimal,
-                        vk::ImageLayout::eGeneral,
-                        sRange,
-                        });
+                    buffer->end();
+                }
 
-                raySummCmdBuffers[i]->raw().pushConstants(compPipeLayout->raw(), vk::ShaderStageFlagBits::eCompute, 0, sizeof(PushWindowSize), &dims);
+                {
+                    auto buffer = raySaveCmdBuffers[i];
+                    buffer->begin();
+                    fillCmdBuffer(buffer, i);
 
-                raySummCmdBuffers[i]->raw().bindDescriptorSets(vk::PipelineBindPoint::eCompute, compPipeLayout->raw(), 0, summDescriptorSet->raw(), nullptr);
-                raySummCmdBuffers[i]->raw().bindPipeline(vk::PipelineBindPoint::eCompute, summPipeline->raw());
-                raySummCmdBuffers[i]->raw().dispatch(swapChain->extent().width / 16, swapChain->extent().height / 16, 1);
+                    buffer->transitionImageLayout({
+                            vram.storage.summ->raw(),
+                            vk::ImageLayout::eGeneral,
+                            vk::ImageLayout::eTransferSrcOptimal,
+                            sRange,
+                            });
 
-                raySummCmdBuffers[i]->end();
+                    vk::ImageCopy copyRegion{};
+                    copyRegion.srcSubresource = { vk::ImageAspectFlagBits::eColor, 0, 0, 1 };
+                    copyRegion.setSrcOffset({ 0, 0, 0 });
+                    copyRegion.dstSubresource = { vk::ImageAspectFlagBits::eColor, 0, 0, 1 };
+                    copyRegion.setDstOffset({ 0, 0, 0 });
+                    copyRegion.setExtent({ vram.storage.summ->extent().width, vram.storage.summ->extent().height, 1 });
 
-                raySaveCmdBuffers[i]->begin();
-                fillCmdBuffer(raySaveCmdBuffers, i);
+                    buffer->raw().copyImage(
+                            vram.storage.summ->raw(), vk::ImageLayout::eTransferSrcOptimal, 
+                            ram.saveImage->raw(), vk::ImageLayout::eGeneral, 
+                            copyRegion
+                            );
 
-                raySaveCmdBuffers[i]->transitionImageLayout({
-                        swapChain->colorAttachment(i)->raw(),
-                        vk::ImageLayout::eTransferDstOptimal,
-                        vk::ImageLayout::ePresentSrcKHR,
-                        sRange,
-                        });
+                    buffer->transitionImageLayout({
+                            vram.storage.summ->raw(),
+                            vk::ImageLayout::eTransferSrcOptimal,
+                            vk::ImageLayout::eGeneral,
+                            sRange,
+                            });
 
-                raySaveCmdBuffers[i]->transitionImageLayout({
-                        vram.storage.image->raw(),
-                        vk::ImageLayout::eTransferSrcOptimal,
-                        vk::ImageLayout::eGeneral,
-                        sRange,
-                        });
-
-                raySaveCmdBuffers[i]->transitionImageLayout({
-                        vram.storage.summ->raw(),
-                        vk::ImageLayout::eGeneral,
-                        vk::ImageLayout::eTransferSrcOptimal,
-                        sRange,
-                        });
-
-                vk::ImageCopy copyRegion{};
-                copyRegion.srcSubresource = { vk::ImageAspectFlagBits::eColor, 0, 0, 1 };
-                copyRegion.setSrcOffset({ 0, 0, 0 });
-                copyRegion.dstSubresource = { vk::ImageAspectFlagBits::eColor, 0, 0, 1 };
-                copyRegion.setDstOffset({ 0, 0, 0 });
-                copyRegion.setExtent({ vram.storage.summ->extent().width, vram.storage.summ->extent().height, 1 });
-
-                raySaveCmdBuffers[i]->raw().copyImage(
-                        vram.storage.summ->raw(), vk::ImageLayout::eTransferSrcOptimal, 
-                        ram.saveImage->raw(), vk::ImageLayout::eGeneral, 
-                        copyRegion
-                        );
-
-                raySaveCmdBuffers[i]->transitionImageLayout({
-                        vram.storage.summ->raw(),
-                        vk::ImageLayout::eTransferSrcOptimal,
-                        vk::ImageLayout::eGeneral,
-                        sRange,
-                        });
-
-                raySaveCmdBuffers[i]->end();
+                    buffer->end();
+                }
             }
 
             inFlightImages.resize(swapChain->length(), nullptr);
@@ -1026,8 +1025,6 @@ class App {
             device->waitIdle();
         }
 
-        uint32_t screenTime = 6;
-
         void updateUnibuffer() {
             const float aspect = static_cast<float>(swapChain->extent().width) / static_cast<float>(swapChain->extent().height);
             const float cameraSpeed = 0.15f;
@@ -1050,6 +1047,7 @@ class App {
             uniData.projInverse = glm::inverse(perspective * glm::mat4(1.0f));
             uniData.viewInverse = glm::inverse(rotateZ * rotateY * translate * glm::mat4(1.0f));
             uniData.frameIndex = globalFrameCount;
+            uniData.N = params.N;
 
             {
                 auto data = vram.unibuffer->map();
@@ -1080,7 +1078,7 @@ class App {
                 rotateZAngle += cameraRotateSpeed;
 
             UniCount uniCount{};
-            uniCount.count = (globalFrameCount == screenTime) ? globalFrameCount : 1;
+            uniCount.count = (globalFrameCount == params.frames) ? params.frames : 1;
 
             {
                 auto data = vram.uniCount->map();
@@ -1094,19 +1092,14 @@ class App {
             static uint32_t screenshotFrame = -1;
             inFlightFences[currentFrame]->wait();
 
-            if (currentFrame == screenshotFrame) {
-                std::thread{hd::saveImg, ram.saveImage, device, allocator, globalFrameCount - swapChain->length()}.detach();
-                /* hd::saveImg(ram.saveImage, device, allocator, globalFrameCount - swapChain->length()); */
-                /* exit(0); */
+            if ((currentFrame == screenshotFrame) && params.capture) {
+                if (params.pseudoOffline) {
+                    hd::saveImg(ram.saveImage, device, allocator, params.method, params.N, globalFrameCount - swapChain->length());
+                    exit(0);
+                }
+                std::thread{hd::saveImg, ram.saveImage, device, allocator, params.method, params.N, globalFrameCount - swapChain->length()}.detach();
                 screenshotFrame = -1;
             }
-
-            static auto startTime = std::chrono::high_resolution_clock::now();
-
-            auto currentTime = std::chrono::high_resolution_clock::now();
-            float deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
-
-            startTime = currentTime;
 
             updateUnibuffer();
 
@@ -1131,22 +1124,22 @@ class App {
                 vk::PipelineStageFlags waitStages[] = { vk::PipelineStageFlagBits::eColorAttachmentOutput };
                 vk::Semaphore signalSemaphores[] = { renderFinished[currentFrame]->raw() };
 
-                vk::CommandBuffer raw;
+                std::vector<vk::CommandBuffer> raw;
 
-                if (globalFrameCount == screenTime) {
-                    raw = raySaveCmdBuffers[imageIndex]->raw();
+                if ((globalFrameCount == params.frames) && params.capture) {
+                    raw.push_back(raySaveCmdBuffers[imageIndex]->raw());
                     screenshotFrame = currentFrame;
-                } else if (globalFrameCount < screenTime)
-                    raw = raySummCmdBuffers[imageIndex]->raw();
-                else
-                    raw = rayCmdBuffers[imageIndex]->raw();
+                } else if ((globalFrameCount < params.frames) && params.capture) {
+                    raw.push_back(raySummCmdBuffers[imageIndex]->raw());
+                } else
+                    raw.push_back(rayCmdBuffers[imageIndex]->raw());
 
                 vk::SubmitInfo submitInfo = {};
                 submitInfo.waitSemaphoreCount = 1;
                 submitInfo.pWaitSemaphores = waitSemaphores;
                 submitInfo.pWaitDstStageMask = waitStages;
-                submitInfo.commandBufferCount = 1;
-                submitInfo.pCommandBuffers = &raw;
+                submitInfo.commandBufferCount = raw.size();
+                submitInfo.pCommandBuffers = raw.data();
                 submitInfo.signalSemaphoreCount = 1;
                 submitInfo.pSignalSemaphores = signalSemaphores;
 
@@ -1187,6 +1180,8 @@ class App {
         }
 
     public:
+        App(params_t _params) : params(_params) {}
+
         void run() {
             init();
             setup();
