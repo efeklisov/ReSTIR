@@ -86,31 +86,17 @@ void main()
     vec3 rayDir = -normalize(gl_WorldRayDirectionEXT);
 
     if (instance >= sizes.meshesSize) {
-        uint lightNo = instance - sizes.meshesSize;
-        Light light = lights.l[lightNo];
-
-        bool frontSide = dot(rayDir, light.normal) > 0;
-        if(!hitValue.diffuse) {
-            if (frontSide)
-                hitValue.color = lights.l[lightNo].color * lights.l[lightNo].intensity;
-            else
-                hitValue.color = vec3(0.1f, 0.1f, 0.1f);
+        if (hitValue.diffuse) {
+            hitValue.color = vec3(0.0f);
             return;
         }
 
-        if (!frontSide)
-            return;
+        uint lightNo = instance - sizes.meshesSize;
 
-        vec3 prevHitPos = gl_WorldRayOriginEXT;
-        vec3 direction = gl_WorldRayDirectionEXT;
-        vec3 hitPos = prevHitPos + direction * gl_HitTEXT;
-
-        float D = length(hitPos - prevHitPos);
-        float p_e = D * D / (lightArea(light) * dot(light.normal, -direction));
-        float p_i = dot(hitValue.prevNrm, direction) / pi;
-        float w_i = p_i * p_i / (p_e * p_e + p_i * p_i);
-
-        hitValue.color = light.intensity * light.color * w_i;
+        if (dot(rayDir, lights.l[lightNo].normal) > 0)
+            hitValue.color = lights.l[lightNo].color * lights.l[lightNo].intensity;
+        else
+            hitValue.color = vec3(0.1f, 0.1f, 0.1f);
         return;
     }
 
@@ -153,18 +139,13 @@ void main()
 
     // Cast new ray
     vec3 newRayD = RandomCosineVectorOf(hitValue.seed, v);
-    float cosTheta = dot(newRayD, v.normal);
+    float cosTheta = dot(normalize(newRayD), v.normal);
 
     float PDF = cosTheta / pi;
     vec3 BRDF = texColor / pi;
 
-    float p_e = R * R / (lightArea(light) * lgtCosTheta);
-    float p_i = cosTheta / pi;
-    float w_e = p_e * p_e / (p_e * p_e + p_i * p_i);
-
-    hitValue.prevNrm = v.normal;
     colorRay(v.pos, newRayD, hitValue.seed, hitValue.depth + 1);
     vec3 indirectColor = hitValue.color;
 
-    hitValue.color = explicitColor * w_e + (BRDF / PDF) * cosTheta * indirectColor;
+    hitValue.color = explicitColor + (BRDF / PDF) * cosTheta * indirectColor;
 }

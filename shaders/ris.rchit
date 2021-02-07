@@ -40,15 +40,6 @@ float shadowRay(vec3 origin, float shadowBias, vec3 direction, float dist) {
         return 1.0f;
 }
 
-// void getLightInfo(PointLight light, vec3 iPoint, out vec3 dir, out vec3 intensity, out float dist) {
-    // dir = iPoint - light.pos;
-    // dist = length(dir);
-    // dir = normalize(dir);
-
-    // float r2 = dist * dist;
-    // intensity = light.intensity * light.color / (4 * pi * r2);
-// }
-
 Vertex barycentricVertex(Vertex v0, Vertex v1, Vertex v2) {
     const vec3 barycentric = vec3(1.0f - attribs.x - attribs.y, attribs.x, attribs.y);
 	vec3 origin    = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_HitTEXT;
@@ -64,7 +55,7 @@ float lightArea(Light light) {
     return length(light.ab) * length(light.ac);
 }
 
-vec3 lightSample(Light light) {
+vec3 lightPoint(Light light) {
     vec3 a = light.a;
     vec3 b = light.ab + light.a;
     vec3 c = light.ac + light.a;
@@ -78,6 +69,52 @@ vec3 lightSample(Light light) {
     return t * e + (1 - t) * f;
 }
 
+struct LightData {
+    uint idx;
+    vec3 dir;
+    float len;
+    float lgtPdf;
+    float W;    
+};
+
+#define MAX_LIGHTS 3
+LightData lightSample(Vertex v) {
+    LightData X[MAX_LIGHTS];
+    float Wsum = 0.0f;
+
+    for (uint i = 0; i < MAX_LIGHTS; i++) {
+        X[i].idx = uint(nextRand(hitValue.seed) * sizes.lightsSize);
+
+        vec3 lpos = lightPoint(lights.l[X[i].idx]);
+        X[i].len = length(v.pos - lpos);
+        X[i].dir = normalize(lpos - v.pos);
+        float cosTheta1 = -dot(X[i].dir, lights.l[X[i].idx].normal);
+        X[i].lgtPdf = (1.0 / lightArea(lights.l[X[i].idx])) * X[i].len * X[i].len / cosTheta1;
+
+        float cosTheta = dot(X[i].dir, v.normal);
+        float pdf = cosTheta / pi;
+
+        X[i].W = X[i].lgtPdf / pdf;
+
+        Wsum += X[i].W;
+    }
+
+    float eps = uint(nextRand(hitValue.seed) * MAX_LIGHTS);
+    eps -= 1.0f / 3.0f;
+    if (eps <= 0.0f) {
+        X[0].W = Wsum;
+        return X[0];
+    }
+    eps -= 1.0f / 3.0f;
+    if (eps <= 0.0f) {
+        X[1].W = Wsum;
+        return X[1];
+    }
+
+    X[MAX_LIGHTS - 1].W = Wsum;
+    return X[MAX_LIGHTS - 1];
+}
+
 void main()
 {
     uint instance = nonuniformEXT(gl_InstanceCustomIndexEXT);
@@ -86,31 +123,17 @@ void main()
     vec3 rayDir = -normalize(gl_WorldRayDirectionEXT);
 
     if (instance >= sizes.meshesSize) {
-        uint lightNo = instance - sizes.meshesSize;
-        Light light = lights.l[lightNo];
-
-        bool frontSide = dot(rayDir, light.normal) > 0;
-        if(!hitValue.diffuse) {
-            if (frontSide)
-                hitValue.color = lights.l[lightNo].color * lights.l[lightNo].intensity;
-            else
-                hitValue.color = vec3(0.1f, 0.1f, 0.1f);
+        if (hitValue.diffuse) {
+            hitValue.color = vec3(0.0f);
             return;
         }
 
-        if (!frontSide)
-            return;
+        uint lightNo = instance - sizes.meshesSize;
 
-        vec3 prevHitPos = gl_WorldRayOriginEXT;
-        vec3 direction = gl_WorldRayDirectionEXT;
-        vec3 hitPos = prevHitPos + direction * gl_HitTEXT;
-
-        float D = length(hitPos - prevHitPos);
-        float p_e = D * D / (lightArea(light) * dot(light.normal, -direction));
-        float p_i = dot(hitValue.prevNrm, direction) / pi;
-        float w_i = p_i * p_i / (p_e * p_e + p_i * p_i);
-
-        hitValue.color = light.intensity * light.color * w_i;
+        if (dot(rayDir, lights.l[lightNo].normal) > 0)
+            hitValue.color = lights.l[lightNo].color * lights.l[lightNo].intensity;
+        else
+            hitValue.color = vec3(0.1f, 0.1f, 0.1f);
         return;
     }
 
@@ -135,36 +158,24 @@ void main()
     // Sample material
     Material mat = materials[nonuniformEXT(gl_InstanceCustomIndexEXT)].m;
 
-    // Light
-    Light light = lights.l[int(nextRand(hitValue.seed) * sizes.lightsSize)];
+    // Compute color
+    LightData light = lightSample(v);
 
-    vec3 lpos = lightSample(light);
-    float R = length(v.pos - lpos);
-    vec3 sdir = normalize(lpos - v.pos);
-    float shadow = shadowRay(v.pos, shadowBias, sdir, R);
+    float shadow = shadowRay(v.pos, shadowBias, light.dir, light.len);
 
-    float lgtCosTheta = -dot(sdir, light.normal);
-    float lgtPdf = (1.0 / lightArea(light)) * R * R / lgtCosTheta;
+    float cosTheta2 = dot(light.dir, v.normal);
+    vec3 lgtVal = lights.l[light.idx].intensity * (texColor * cosTheta2 / pi);
 
-    float lambCosTheta = dot(sdir, v.normal);
-    float lambPdf = lambCosTheta / pi;
+    vec3 explicitColor = lgtVal / light.lgtPdf * shadow;
 
-    vec3 explicitColor = light.intensity * texColor * shadow * lambPdf / lgtPdf;
-
-    // Cast new ray
     vec3 newRayD = RandomCosineVectorOf(hitValue.seed, v);
-    float cosTheta = dot(newRayD, v.normal);
+    float cosTheta = dot(normalize(newRayD), v.normal);
 
     float PDF = cosTheta / pi;
     vec3 BRDF = texColor / pi;
 
-    float p_e = R * R / (lightArea(light) * lgtCosTheta);
-    float p_i = cosTheta / pi;
-    float w_e = p_e * p_e / (p_e * p_e + p_i * p_i);
-
-    hitValue.prevNrm = v.normal;
     colorRay(v.pos, newRayD, hitValue.seed, hitValue.depth + 1);
     vec3 indirectColor = hitValue.color;
 
-    hitValue.color = explicitColor * w_e + (BRDF / PDF) * cosTheta * indirectColor;
+    hitValue.color = explicitColor * light.W + (BRDF / PDF) * cosTheta * indirectColor;
 }

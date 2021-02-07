@@ -5,13 +5,6 @@
 
 #include "app.hpp"
 
-/* struct params { */
-/*     uint32_t N = 4; */
-/*     std::string method = "mis_orig"; */
-/*     bool pseudoOffline = false; */
-/*     uint32_t Frames = 6; */
-/* }; */
-
 int main(int argc, char* argv[]) {
     CLI::App parser{"Wanna-be pathtracer"};
 
@@ -22,6 +15,7 @@ int main(int argc, char* argv[]) {
     parser.add_flag("-c,--capture", params.capture, "Capture screenshot");
     parser.add_flag("-o,--offline", params.pseudoOffline, "Quit after rendering the screenshot");
     parser.add_option("-f,--frames", params.frames, "Number of frames to concatenate");
+    parser.add_option("-t,--tolerance", params.tolerance, "Number of frames before capturing");
 
     try {
         parser.parse(argc, argv);

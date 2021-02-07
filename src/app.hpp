@@ -51,6 +51,7 @@ struct params_t {
     bool pseudoOffline = false;
     uint32_t frames = 6;
     bool capture = false;
+    uint32_t tolerance = 0;
 };
 
 struct MVP {
@@ -624,14 +625,14 @@ class App {
         hd::SwapChain swapChain;
 
         hd::DescriptorPool rayDescriptorPool;
-        hd::DescriptorSet summDescriptorSet;
+        hd::DescriptorSet compDescriptorSet;
         hd::DescriptorSet rayDescriptorSet;
         std::vector<hd::CommandBuffer> rayCmdBuffers;
         std::vector<hd::CommandBuffer> raySaveCmdBuffers;
         std::vector<hd::CommandBuffer> raySummCmdBuffers;
         std::vector<hd::Fence> inFlightImages;
 
-        inline auto fillSummLayout() {
+        inline auto fillCompLayout() {
             std::vector<vk::WriteDescriptorSet> writes;
             writes.reserve(3);
 
@@ -641,7 +642,7 @@ class App {
                 writeSet.dstArrayElement = index;
                 writeSet.descriptorType = type;
                 writeSet.descriptorCount = 1;
-                writeSet.dstSet = summDescriptorSet->raw();
+                writeSet.dstSet = compDescriptorSet->raw();
 
                 return writeSet;
             };
@@ -861,10 +862,10 @@ class App {
                     .instances = 1,
                    });
 
-            summDescriptorSet = rayDescriptorPool->allocate(1, compLayout).at(0);
+            compDescriptorSet = rayDescriptorPool->allocate(1, compLayout).at(0);
             rayDescriptorSet = rayDescriptorPool->allocate(1, rayLayout).at(0);
 
-            fillSummLayout();
+            fillCompLayout();
             fillRayLayout();
 
             vk::ImageSubresourceRange sRange = { vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1 };
@@ -951,12 +952,9 @@ class App {
                     buffer->begin();
                     fillCmdBuffer(buffer, i);
 
-                    buffer->barrier({vk::AccessFlagBits{0}, vk::AccessFlagBits{0},
-                            vk::PipelineStageFlagBits::eRayTracingShaderKHR, vk::PipelineStageFlagBits::eComputeShader});
-
                     buffer->raw().pushConstants(compPipeLayout->raw(), vk::ShaderStageFlagBits::eCompute, 0, sizeof(PushWindowSize), &dims);
 
-                    buffer->raw().bindDescriptorSets(vk::PipelineBindPoint::eCompute, compPipeLayout->raw(), 0, summDescriptorSet->raw(), nullptr);
+                    buffer->raw().bindDescriptorSets(vk::PipelineBindPoint::eCompute, compPipeLayout->raw(), 0, compDescriptorSet->raw(), nullptr);
                     buffer->raw().bindPipeline(vk::PipelineBindPoint::eCompute, summPipeline->raw());
                     buffer->raw().dispatch(swapChain->extent().width / 16, swapChain->extent().height / 16, 1);
 
@@ -1078,7 +1076,7 @@ class App {
                 rotateZAngle += cameraRotateSpeed;
 
             UniCount uniCount{};
-            uniCount.count = (globalFrameCount == params.frames) ? params.frames : 1;
+            uniCount.count = (globalFrameCount == params.frames) ? (params.frames - (params.tolerance + 1)) : 1;
 
             {
                 auto data = vram.uniCount->map();
@@ -1094,10 +1092,10 @@ class App {
 
             if ((currentFrame == screenshotFrame) && params.capture) {
                 if (params.pseudoOffline) {
-                    hd::saveImg(ram.saveImage, device, allocator, params.method, params.N, globalFrameCount - swapChain->length());
+                    hd::saveImg(ram.saveImage, device, allocator, params.method, params.N, params.tolerance, globalFrameCount - swapChain->length());
                     exit(0);
                 }
-                std::thread{hd::saveImg, ram.saveImage, device, allocator, params.method, params.N, globalFrameCount - swapChain->length()}.detach();
+                std::thread{hd::saveImg, ram.saveImage, device, allocator, params.method, params.N, params.tolerance, globalFrameCount - swapChain->length()}.detach();
                 screenshotFrame = -1;
             }
 
@@ -1129,7 +1127,7 @@ class App {
                 if ((globalFrameCount == params.frames) && params.capture) {
                     raw.push_back(raySaveCmdBuffers[imageIndex]->raw());
                     screenshotFrame = currentFrame;
-                } else if ((globalFrameCount < params.frames) && params.capture) {
+                } else if ((globalFrameCount >= params.tolerance) && (globalFrameCount < params.frames) && params.capture) {
                     raw.push_back(raySummCmdBuffers[imageIndex]->raw());
                 } else
                     raw.push_back(rayCmdBuffers[imageIndex]->raw());
