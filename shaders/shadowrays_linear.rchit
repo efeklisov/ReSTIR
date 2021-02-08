@@ -21,7 +21,7 @@ layout(binding = 8, set = 0) uniform Sizes {
     uint lightsSize;
 } sizes;
 
-#define MAX_LIGHTS 4
+#define MAX_LIGHTS 80
 
 float shadowBias = 0.0001f;
 float pi = 3.14159265f;
@@ -122,19 +122,15 @@ void main()
         Lsum += L[i];
     }
 
-    float eps = nextRand(hitValue.seed);
-    float alpha = 0.0f;
-    float sigmaEps = 0.0f;
-
+    float eps = nextRand(hitValue.seed) * Lsum;
     uint idx;
     for (idx = 0; idx < sizes.lightsSize; idx++) {
-        alpha = sigmaEps;
-        sigmaEps += L[idx] / Lsum; 
+        eps -= L[idx];
 
-        if (eps < sigmaEps)
+        if (eps <= 0.0f)
             break;
     }
-    float reusedEps = (eps - alpha) / (sigmaEps - alpha);
+    float reusedEps = eps / L[idx] + 1.0f;
 
     Light light = lights.l[idx];
     vec3 lpos = lightSample(light, reusedEps);
@@ -147,7 +143,7 @@ void main()
     float L_e = light.intensity;
     vec3 BRDF = texColor / pi; // Lambert
 
-    vec3 explicitColor = C * shadow * BRDF * L_e * dot(-ldir, v.normal) * dot(ldir, light.normal) / (lgtPdf(light) * norm * norm);
+    vec3 explicitColor = C * shadow * BRDF * L_e * dot(-ldir, v.normal) * dot(ldir, light.normal) / (L[idx] * norm * norm);
 
     // Cast new ray
     // vec3 newRayD = RandomCosineVectorOf(hitValue.seed, v);

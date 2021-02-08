@@ -113,24 +113,12 @@ void main()
     Material mat = materials[nonuniformEXT(gl_InstanceCustomIndexEXT)].m;
 
     // Light
-    float eps = nextRand(hitValue.seed);
-    float alpha = 0.0f;
-    float sigmaEps = 0.0f;
-    float uniformProb = 1.0f / float(sizes.lightsSize);
+    float idx = nextRand(hitValue.seed) * sizes.lightsSize;
+    float reusedEps = idx - uint(idx);
 
-    uint idx;
-    for (idx = 0; idx < sizes.lightsSize; idx++) {
-        alpha = sigmaEps;
-        sigmaEps += uniformProb; 
-
-        if (eps < sigmaEps)
-            break;
-    }
-    float reusedEps = (eps - alpha) / (sigmaEps - alpha);
-
-    Light light = lights.l[idx];
-
+    Light light = lights.l[uint(idx)];
     vec3 lpos = lightSample(light, reusedEps);
+
     vec3 ldir = normalize(v.pos - lpos);
     float norm = length(v.pos - lpos);
     float shadow = shadowRay(v.pos, shadowBias, -ldir, norm);

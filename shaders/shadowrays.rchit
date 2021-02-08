@@ -19,9 +19,10 @@ layout(binding = 7, set = 0, scalar) buffer Lights { Light l[]; } lights;
 layout(binding = 8, set = 0) uniform Sizes {
     uint meshesSize;    
     uint lightsSize;
+    uint M;
 } sizes;
 
-#define MAX_SAMPLES 16
+#define MAX_SAMPLES 64
 
 float shadowBias = 0.0001f;
 float pi = 3.14159265f;
@@ -129,43 +130,26 @@ void main()
     vec3  Samples[MAX_SAMPLES];
     float W[MAX_SAMPLES];
     float Wsum = 0.0f;
-    for (uint i = 0; i < MAX_SAMPLES; i++) {
-        float eps = nextRand(hitValue.seed);
-        float alpha = 0.0f;
-        float sigmaEps = 0.0f;
-        float uniformProb = 1.0f / float(sizes.lightsSize);
+    for (uint i = 0; i < sizes.M; i++) {
+        float idx = nextRand(hitValue.seed) * sizes.lightsSize;
+        float reusedEps = idx - uint(idx);
 
-        uint idx;
-        for (idx = 0; idx < sizes.lightsSize; idx++) {
-            alpha = sigmaEps;
-            sigmaEps += uniformProb; 
-
-            if (eps < sigmaEps)
-                break;
-        }
-        float reusedEps = (eps - alpha) / (sigmaEps - alpha);
-
-        Light light = lights.l[idx];
+        Light light = lights.l[uint(idx)];
         Samples[i] = lightSample(light, reusedEps);
 
-        L[i] = idx;
-        W[i] = desPdf(light, v, Samples[i], texColor) / lgtPdf(light);
+        L[i] = uint(idx);
+        W[i] = desPdf(light, v, Samples[i], texColor) / lgtPdf(light); // P_6 / P_5 LOL
         Wsum += W[i];
     }
 
-    float eps = nextRand(hitValue.seed);
-    float alpha = 0.0f;
-    float sigmaEps = 0.0f;
-
+    float eps = nextRand(hitValue.seed) * Wsum;
     uint idx;
-    for (idx = 0; idx < MAX_SAMPLES; idx++) {
-        alpha = sigmaEps;
-        sigmaEps += W[idx] / Wsum; 
+    for (idx = 0; idx < sizes.M; idx++) {
+        eps -= W[idx]; 
 
-        if (eps < sigmaEps)
+        if (eps <= 0.0f)
             break;
     }
-    float reusedEps = (eps - alpha) / (sigmaEps - alpha);
 
     Light light = lights.l[L[idx]];
     vec3  lpos = Samples[idx];
@@ -191,5 +175,5 @@ void main()
     // colorRay(v.pos, newRayD, hitValue.seed, hitValue.depth + 1);
     // vec3 indirectColor = hitValue.color;
 
-    hitValue.color = explicitColor * Wsum / MAX_SAMPLES; // + (BRDF / PDF) * cosTheta * indirectColor;
+    hitValue.color = explicitColor * Wsum / sizes.M; // + (BRDF / PDF) * cosTheta * indirectColor;
 }

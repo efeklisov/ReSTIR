@@ -52,6 +52,7 @@ struct params_t {
     uint32_t frames = 6;
     bool capture = false;
     uint32_t tolerance = 0;
+    uint32_t M = 4;
 };
 
 struct MVP {
@@ -70,6 +71,7 @@ struct UniformData {
 struct UniSizes {
     uint32_t meshesSize;
     uint32_t lightsSize;
+    uint32_t M;
 };
 
 struct PushWindowSize {
@@ -280,6 +282,7 @@ class App {
             UniSizes uniSizes{};
             uniSizes.meshesSize = scene->meshes.size();
             uniSizes.lightsSize = lights.size();
+            uniSizes.M = params.M;
 
             vram.uniSizes = hd::conjure<UniSizes>({
                     .commandPool = graphicsPool,
