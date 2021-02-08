@@ -21,7 +21,7 @@ layout(binding = 8, set = 0) uniform Sizes {
     uint lightsSize;
 } sizes;
 
-#define MAX_SAMPLES 4
+#define MAX_SAMPLES 16
 
 float shadowBias = 0.0001f;
 float pi = 3.14159265f;
@@ -74,7 +74,7 @@ float desPdf(Light light, Vertex v, vec3 lpos, vec3 texColor) {
     vec3  ldir = normalize(v.pos - lpos);
     float norm = length(v.pos - lpos);
 
-    return /*BRDF* L_e * */ dot(-ldir, v.normal) * dot(ldir, light.normal) / (norm * norm);
+    return /*BRDF* L_e * */ dot(ldir, light.normal) / (norm * norm);
 }
 
 float lgtPdf(Light light) {
@@ -129,7 +129,7 @@ void main()
     vec3  Samples[MAX_SAMPLES];
     float W[MAX_SAMPLES];
     float Wsum = 0.0f;
-    for (uint i = 0; i < sizes.lightsSize; i++) {
+    for (uint i = 0; i < MAX_SAMPLES; i++) {
         float eps = nextRand(hitValue.seed);
         float alpha = 0.0f;
         float sigmaEps = 0.0f;
@@ -176,10 +176,10 @@ void main()
     
     float C = 2.0f;
     float L_e = light.intensity;
-    vec3 BRDF = vec3(length(texColor)) / pi; // Lambert
+    vec3 BRDF = texColor / pi; // Lambert
 
-    vec3 explicitColor = C * shadow * BRDF * L_e * dot(-ldir, v.normal) * dot(ldir, light.normal) / (desPdf(light, v, lpos, texColor) * norm * norm);
-    // vec3 explicitColor = C * shadow * texColor;
+    // vec3 explicitColor = C * shadow * BRDF * L_e * dot(-ldir, v.normal) * dot(ldir, light.normal) / (desPdf(light, v, lpos, texColor) * norm * norm);
+    vec3 explicitColor = C * shadow * BRDF * L_e * dot(-ldir, v.normal);
 
     // Cast new ray
     // vec3 newRayD = RandomCosineVectorOf(hitValue.seed, v);

@@ -145,7 +145,7 @@ void main()
     
     float C = 2.0f;
     float L_e = light.intensity;
-    vec3 BRDF = vec3(length(texColor)) / pi; // Lambert
+    vec3 BRDF = texColor / pi; // Lambert
 
     vec3 explicitColor = C * shadow * BRDF * L_e * dot(-ldir, v.normal) * dot(ldir, light.normal) / (lgtPdf(light) * norm * norm);
 
