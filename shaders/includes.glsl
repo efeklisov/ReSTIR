@@ -40,3 +40,11 @@ struct Light
     vec3 ab;
     vec3 ac;
 };
+
+struct reservoir {
+    float X;
+    float Y;
+    float W;
+    float M;
+    float Wsum;
+};

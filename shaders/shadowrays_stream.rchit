@@ -19,9 +19,11 @@ layout(binding = 7, set = 0, scalar) buffer Lights { Light l[]; } lights;
 layout(binding = 8, set = 0) uniform Sizes {
     uint meshesSize;    
     uint lightsSize;
+    uint M;
 } sizes;
+layout(binding = 9, set = 0, rgba8) uniform image2D reservoirs;
 
-#define MAX_LIGHTS 80
+#define MAX_SAMPLES 64
 
 float shadowBias = 0.0001f;
 float pi = 3.14159265f;
@@ -42,15 +44,6 @@ float shadowRay(vec3 origin, float shadowBias, vec3 direction, float dist) {
         return 1.0f;
 }
 
-// void getLightInfo(PointLight light, vec3 iPoint, out vec3 dir, out vec3 intensity, out float dist) {
-    // dir = iPoint - light.pos;
-    // dist = length(dir);
-    // dir = normalize(dir);
-
-    // float r2 = dist * dist;
-    // intensity = light.intensity * light.color / (4 * pi * r2);
-// }
-
 Vertex barycentricVertex(Vertex v0, Vertex v1, Vertex v2) {
     const vec3 barycentric = vec3(1.0f - attribs.x - attribs.y, attribs.x, attribs.y);
 	vec3 origin    = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_HitTEXT;
@@ -62,13 +55,31 @@ Vertex barycentricVertex(Vertex v0, Vertex v1, Vertex v2) {
     return Vertex(origin, normal, texCoord, tangent, bitangent);
 }
 
+vec3 lightSample(Light light, float eps1, float eps2) {
+    return light.a + eps1 * light.ab + eps2 * light.ac;
+}
+
+float desPdf(Light light, Vertex v, vec3 lpos) {
+    float L_e = light.intensity;
+
+    vec3  ldir = normalize(v.pos - lpos);
+    float norm = length(v.pos - lpos);
+
+    return dot(ldir, light.normal) / (norm * norm);
+}
+
 float lgtPdf(Light light) {
     return 2.0f / length(cross(light.ab, light.ac));
 }
 
-vec3 lightSample(Light light, float eps) {
-    float eps2 = nextRand(hitValue.seed);
-    return light.a + eps * light.ab + eps2 * light.ac;
+void update(inout vec4 reservoir, float x_i, float a_i, float w_i) {
+    reservoir.w += w_i; // Wsum
+    reservoir.z += 1.0f; // M
+
+    if (nextRand(hitValue.seed) < (w_i / reservoir.w)) {
+        reservoir.x = x_i; // Eps 1
+        reservoir.y = a_i; // Eps 2
+    }
 }
 
 void main()
@@ -115,27 +126,32 @@ void main()
     Material mat = materials[nonuniformEXT(gl_InstanceCustomIndexEXT)].m;
 
     // Light
-    float Lsum = 0.0f;
-    float L[MAX_LIGHTS];
-    for (uint i = 0; i < sizes.lightsSize; i++) {
-        L[i] = lgtPdf(lights.l[i]);
-        Lsum += L[i];
+    vec4 r = vec4(0.0f);
+    for (uint i = 0; i < sizes.M; i++) {
+        float eps1 = nextRand(hitValue.seed);
+
+        float idx  = eps1 * sizes.lightsSize;
+        float eps2 = nextRand(hitValue.seed);
+
+        float reusedEps1 = idx - uint(idx);
+
+        Light light = lights.l[uint(idx)];
+        vec3  lpos = lightSample(light, reusedEps1, eps2);
+
+        float w = desPdf(light, v, lpos) / lgtPdf(light);
+        update(r, eps1, eps2, w);
     }
 
-    float eps = nextRand(hitValue.seed) * Lsum;
-    uint idx;
-    for (idx = 0; idx < sizes.lightsSize; idx++) {
-        eps -= L[idx];
+    float idx  = r.x * sizes.lightsSize;
+    float reusedEps1 = idx - uint(idx);
 
-        if (eps <= 0.0f)
-            break;
-    }
-    float reusedEps = eps / L[idx] + 1.0f;
+    Light light = lights.l[uint(idx)];
+    vec3  lpos = lightSample(light, reusedEps1, r.y);
 
-    Light light = lights.l[idx];
-    vec3 lpos = lightSample(light, reusedEps);
+    float pdf = desPdf(light, v, lpos);
+    float rW = (1.0f / pdf) * (r.w / r.z);
 
-    vec3 ldir = normalize(v.pos - lpos);
+    vec3  ldir = normalize(v.pos - lpos);
     float norm = length(v.pos - lpos);
     float shadow = shadowRay(v.pos, shadowBias, -ldir, norm);
     
@@ -143,17 +159,7 @@ void main()
     float L_e = light.intensity;
     vec3 BRDF = texColor / pi; // Lambert
 
-    vec3 explicitColor = C * shadow * BRDF * L_e * dot(-ldir, v.normal) * dot(ldir, light.normal) / (L[idx] * norm * norm);
+    vec3 explicitColor = C * shadow * BRDF * L_e * dot(-ldir, v.normal) * dot(ldir, light.normal) / (norm * norm);
 
-    // Cast new ray
-    // vec3 newRayD = RandomCosineVectorOf(hitValue.seed, v);
-    // float cosTheta = dot(normalize(newRayD), v.normal);
-
-    // float PDF = cosTheta / pi;
-    // vec3 BRDF = texColor / pi;
-
-    // colorRay(v.pos, newRayD, hitValue.seed, hitValue.depth + 1);
-    // vec3 indirectColor = hitValue.color;
-
-    hitValue.color = explicitColor; // + (BRDF / PDF) * cosTheta * indirectColor;
+    hitValue.color = explicitColor * rW;
 }

@@ -38,7 +38,7 @@ float shadowRay(vec3 origin, float shadowBias, vec3 direction, float dist) {
         0xFF, 0, 0, 1, origin, shadowBias, direction, dist, 2);
 
     if (shadowed)
-        return 0.3f;
+        return 0.0f;
     else
         return 1.0f;
 }

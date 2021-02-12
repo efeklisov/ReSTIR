@@ -14,6 +14,7 @@ int main(int argc, char* argv[]) {
     parser.add_option("-m,--method", params.method, "Which shader to use");
     parser.add_flag("-c,--capture", params.capture, "Capture screenshot");
     parser.add_flag("-o,--offline", params.pseudoOffline, "Quit after rendering the screenshot");
+    parser.add_flag("-a,--accumulate", params.accumulate, "Stitch frames together");
     parser.add_option("-f,--frames", params.frames, "Number of frames to concatenate");
     parser.add_option("-t,--tolerance", params.tolerance, "Number of frames before capturing");
     parser.add_option("-M,--M", params.M, "M value for RIS");
