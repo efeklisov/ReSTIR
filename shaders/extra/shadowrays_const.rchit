@@ -4,7 +4,7 @@
 #extension GL_EXT_scalar_block_layout : enable
 #extension GL_GOOGLE_include_directive : enable
 
-#include "includes.glsl"
+#include "../includes.glsl"
 
 layout(location = 0) rayPayloadInEXT hitPayload hitValue;
 layout(location = 2) rayPayloadEXT bool shadowed;
@@ -26,7 +26,7 @@ float pi = 3.14159265f;
 float albedo = 0.18f;
 float specularPower = 35;
 
-#include "shootRay.glsl"
+#include "../shootRay.glsl"
 
 float shadowRay(vec3 origin, float shadowBias, vec3 direction, float dist) {
 	shadowed = true;

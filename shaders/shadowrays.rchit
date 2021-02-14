@@ -22,9 +22,7 @@ layout(binding = 8, set = 0) uniform Sizes {
     uint M;
 } sizes;
 layout(binding = 9, set = 0, rgba8) uniform image2D reservoirMain;
-layout(binding = 10, set = 0, rgba8) uniform image2D reservoirWeight;
-layout(binding = 11, set = 0, rgba8) uniform image2D reservoirSwap;
-layout(binding = 12, set = 0, rgba8) uniform image2D reservoirWSwap;
+layout(binding = 10, set = 0, rgba8) uniform image2D reservoirSwap;
 
 layout(push_constant) uniform params_t
 {

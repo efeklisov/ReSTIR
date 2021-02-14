@@ -4,7 +4,7 @@
 #extension GL_EXT_scalar_block_layout : enable
 #extension GL_GOOGLE_include_directive : enable
 
-#include "includes.glsl"
+#include "../includes.glsl"
 
 layout(location = 0) rayPayloadInEXT hitPayload hitValue;
 layout(location = 2) rayPayloadEXT bool shadowed;
@@ -21,14 +21,12 @@ layout(binding = 8, set = 0) uniform Sizes {
     uint lightsSize;
 } sizes;
 
-#define MAX_LIGHTS 80
-
 float shadowBias = 0.0001f;
 float pi = 3.14159265f;
 float albedo = 0.18f;
 float specularPower = 35;
 
-#include "shootRay.glsl"
+#include "../shootRay.glsl"
 
 float shadowRay(vec3 origin, float shadowBias, vec3 direction, float dist) {
 	shadowed = true;
@@ -37,7 +35,7 @@ float shadowRay(vec3 origin, float shadowBias, vec3 direction, float dist) {
         0xFF, 0, 0, 1, origin, shadowBias, direction, dist, 2);
 
     if (shadowed)
-        return 0.0f;
+        return 0.3f;
     else
         return 1.0f;
 }
@@ -62,15 +60,6 @@ Vertex barycentricVertex(Vertex v0, Vertex v1, Vertex v2) {
     return Vertex(origin, normal, texCoord, tangent, bitangent);
 }
 
-float lgtPdf(Light light) {
-    return 2.0f / length(cross(light.ab, light.ac));
-}
-
-vec3 lightSample(Light light, float eps) {
-    float eps2 = nextRand(hitValue.seed);
-    return light.a + eps * light.ab + eps2 * light.ac;
-}
-
 void main()
 {
     uint instance = nonuniformEXT(gl_InstanceCustomIndexEXT);
@@ -79,11 +68,6 @@ void main()
     vec3 rayDir = -normalize(gl_WorldRayDirectionEXT);
 
     if (instance >= sizes.meshesSize) {
-        if (hitValue.diffuse) {
-            hitValue.color = vec3(0.0f);
-            return;
-        }
-
         uint lightNo = instance - sizes.meshesSize;
 
         if (dot(rayDir, lights.l[lightNo].normal) > 0)
@@ -92,8 +76,6 @@ void main()
             hitValue.color = vec3(0.1f, 0.1f, 0.1f);
         return;
     }
-
-    hitValue.diffuse = true;
 
     // Indices of the Triangle
     ivec3 index = ivec3(indices[instance].i[3 * gl_PrimitiveID + 0],
@@ -114,46 +96,20 @@ void main()
     // Sample material
     Material mat = materials[nonuniformEXT(gl_InstanceCustomIndexEXT)].m;
 
-    // Light
-    float Lsum = 0.0f;
-    float L[MAX_LIGHTS];
-    for (uint i = 0; i < sizes.lightsSize; i++) {
-        L[i] = lgtPdf(lights.l[i]);
-        Lsum += L[i];
-    }
+    // Indirect Result
+    vec3 indirectColor = vec3(1.0, 1.0, 1.0);
 
-    float eps = nextRand(hitValue.seed) * Lsum;
-    uint idx;
-    for (idx = 0; idx < sizes.lightsSize; idx++) {
-        eps -= L[idx];
-
-        if (eps <= 0.0f)
-            break;
-    }
-    float reusedEps = eps / L[idx] + 1.0f;
-
-    Light light = lights.l[idx];
-    vec3 lpos = lightSample(light, reusedEps);
-
-    vec3 ldir = normalize(v.pos - lpos);
-    float norm = length(v.pos - lpos);
-    float shadow = shadowRay(v.pos, shadowBias, -ldir, norm);
+    // float cosTheta;
+    // vec3 direction = CosineWeightedHemisphereSample(hitValue.seed, v, cosTheta);
+    // cosTheta = dot(normalize(direction), v.normal);
+    vec3 direction = RandomUnitVectorInHemisphereOf(hitValue.seed, v);
+    float cosTheta = dot(normalize(direction), v.normal);
     
-    float C = 2.0f;
-    float L_e = light.intensity;
-    vec3 BRDF = texColor / pi; // Lambert
+    float PDF = 1 / pi;
+    vec3 BRDF = texColor / pi;
 
-    vec3 explicitColor = C * shadow * BRDF * L_e * dot(-ldir, v.normal) * dot(ldir, light.normal) / (L[idx] * norm * norm);
+    colorRay(v.pos, direction, hitValue.seed, hitValue.depth + 1);
+    indirectColor *= hitValue.color;
 
-    // Cast new ray
-    // vec3 newRayD = RandomCosineVectorOf(hitValue.seed, v);
-    // float cosTheta = dot(normalize(newRayD), v.normal);
-
-    // float PDF = cosTheta / pi;
-    // vec3 BRDF = texColor / pi;
-
-    // colorRay(v.pos, newRayD, hitValue.seed, hitValue.depth + 1);
-    // vec3 indirectColor = hitValue.color;
-
-    hitValue.color = explicitColor; // + (BRDF / PDF) * cosTheta * indirectColor;
+    hitValue.color = (BRDF / PDF) * cosTheta * indirectColor;
 }

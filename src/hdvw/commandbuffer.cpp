@@ -123,6 +123,12 @@ void CommandBuffer_t::transitionImageLayout(TransitionRawImageLayoutInfo ci) {
 
         sourceStage = vk::PipelineStageFlagBits::eTransfer;
         destinationStage = vk::PipelineStageFlagBits::eTopOfPipe;
+    } else if (ci.srcLayout == vk::ImageLayout::eTransferSrcOptimal && ci.dstLayout == vk::ImageLayout::eTransferDstOptimal) {
+        barrier.dstAccessMask = vk::AccessFlagBits::eTransferWrite;
+        barrier.srcAccessMask = vk::AccessFlagBits::eTransferRead;
+
+        destinationStage = vk::PipelineStageFlagBits::eTransfer;
+        sourceStage = vk::PipelineStageFlagBits::eTransfer;
     } else if (ci.srcLayout == vk::ImageLayout::eTransferDstOptimal && ci.dstLayout == vk::ImageLayout::eTransferSrcOptimal) {
         barrier.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
         barrier.dstAccessMask = vk::AccessFlagBits::eTransferRead;

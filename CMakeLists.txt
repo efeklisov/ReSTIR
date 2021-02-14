@@ -1,4 +1,4 @@
-project (New_Shallow_Water)
+project (Raytraycing)
 cmake_minimum_required (VERSION 3.10)
 
 set (CMAKE_CXX_STANDARD 20)
@@ -6,14 +6,8 @@ set (CMAKE_CXX_COMPILER clang++)
 
 add_definitions (-DVULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1 -DVK_ENABLE_BETA_EXTENSIONS)
 
-set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-nullability-completeness -pthread")
-
-if (UNIX AND NOT APPLE)
-    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0 -g" )
-    find_package (OpenMP REQUIRED)
-else ()
-    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0 -g" )
-endif ()
+set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-nullability-completeness -pthread -O3")
+# set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-nullability-completeness -pthread -O0 -g")
 
 find_package (glfw3 3.3 REQUIRED)
 find_package (glm REQUIRED)
@@ -57,8 +51,4 @@ add_executable (neo
     src/external/stb_image_write.cpp
 )
 
-if (UNIX AND NOT APPLE)
-    target_link_libraries (neo glfw glm assimp -ldl)
-else ()
-    target_link_libraries (neo glfw glm assimp)
-endif ()
+target_link_libraries (neo glfw glm assimp -ldl)
