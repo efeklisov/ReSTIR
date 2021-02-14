@@ -57,6 +57,7 @@ struct params_t {
     uint32_t tolerance = 0;
     uint32_t M = 4;
     bool accumulate;
+    bool immediate = false;
 };
 
 struct MVP {
@@ -906,34 +907,42 @@ class App {
                     copyRegion
                     );
 
-            std::vector<vk::ImageMemoryBarrier> exchangeToTransfer;
+            std::vector<vk::ImageMemoryBarrier> pastToTrace;
 
-            exchangeToTransfer.push_back(make(swapChain->colorAttachment(i),
+            pastToTrace.push_back(make(vram.reservoir.past.image,
+                    vk::ImageLayout::eTransferDstOptimal,
+                    vk::ImageLayout::eGeneral,
+                    vk::AccessFlagBits::eTransferWrite,
+                    vk::AccessFlags{0}
+                    ));
+
+            engage(pastToTrace, vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eRayTracingShaderKHR);
+
+            std::vector<vk::ImageMemoryBarrier> swapChainSync;
+
+            swapChainSync.push_back(make(swapChain->colorAttachment(i),
                     vk::ImageLayout::eUndefined,
                     vk::ImageLayout::eTransferDstOptimal,
                     vk::AccessFlags{0},
                     vk::AccessFlagBits::eTransferWrite
                     ));
 
-            exchangeToTransfer.push_back(make(vram.storage.image,
+            swapChainSync.push_back(make(vram.storage.image,
                     vk::ImageLayout::eGeneral,
                     vk::ImageLayout::eTransferSrcOptimal,
                     vk::AccessFlagBits::eMemoryWrite,
                     vk::AccessFlagBits::eTransferRead
                     ));
 
+            engage(swapChainSync, vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer);
+
+            std::vector<vk::ImageMemoryBarrier> exchangeToTransfer;
+
             exchangeToTransfer.push_back(make(vram.reservoir.present.image,
                     vk::ImageLayout::eTransferSrcOptimal,
                     vk::ImageLayout::eTransferDstOptimal,
                     vk::AccessFlagBits::eTransferRead,
                     vk::AccessFlagBits::eTransferWrite
-                    ));
-
-            exchangeToTransfer.push_back(make(vram.reservoir.past.image,
-                    vk::ImageLayout::eTransferDstOptimal,
-                    vk::ImageLayout::eGeneral,
-                    vk::AccessFlagBits::eTransferWrite,
-                    vk::AccessFlags{0}
                     ));
 
             exchangeToTransfer.push_back(make(vram.reservoir.vpos.image,
@@ -1025,13 +1034,6 @@ class App {
                     vk::AccessFlags{0}
                     ));
 
-            transferToBottom.push_back(make(swapChain->colorAttachment(i),
-                    vk::ImageLayout::eTransferDstOptimal,
-                    vk::ImageLayout::ePresentSrcKHR,
-                    vk::AccessFlagBits::eTransferWrite,
-                    vk::AccessFlagBits::eMemoryRead
-                    ));
-
             transferToBottom.push_back(make(vram.storage.image,
                     vk::ImageLayout::eTransferSrcOptimal,
                     vk::ImageLayout::eGeneral,
@@ -1040,6 +1042,17 @@ class App {
                     ));
 
             engage(transferToBottom, vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eRayTracingShaderKHR);
+
+            std::vector<vk::ImageMemoryBarrier> swapChainPassthrough;
+
+            swapChainPassthrough.push_back(make(swapChain->colorAttachment(i),
+                    vk::ImageLayout::eTransferDstOptimal,
+                    vk::ImageLayout::ePresentSrcKHR,
+                    vk::AccessFlagBits::eTransferWrite,
+                    vk::AccessFlagBits::eMemoryRead
+                    ));
+
+            engage(swapChainPassthrough, vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer);
 
             buffer->end();
         }
@@ -1172,12 +1185,14 @@ class App {
         uint32_t globalFrameCount = 0;
 
         auto setup() {
+            auto present = (params.immediate) ? vk::PresentModeKHR::eImmediate : vk::PresentModeKHR::eFifo;
+
             swapChain = hd::conjure(hd::SwapChainCreateInfo{
                     .window = window,
                     .surface = surface,
                     .allocator = allocator,
                     .device = device,
-                    .presentMode = vk::PresentModeKHR::eMailbox,
+                    .presentMode = present,
                     });
 
             auto allocVRAMImage = [&](hd::Image& image, hd::ImageView& view, vk::Format format, vk::ImageUsageFlags flags, bool clear = false) {
@@ -1283,7 +1298,10 @@ class App {
             raySaveCmdBuffers = graphicsPool->allocate(swapChain->length());
             raySummCmdBuffers = graphicsPool->allocate(swapChain->length());
             for (uint32_t i = 0; i < swapChain->length(); i++) {
-                fillReSTIRBuffer(rayCmdBuffers[i], i);
+                if (params.method == "ReSTIR")
+                    fillReSTIRBuffer(rayCmdBuffers[i], i);
+                else
+                    fillEtraBuffer(rayCmdBuffers[i], i);
 
                 if (!params.capture)
                     continue;

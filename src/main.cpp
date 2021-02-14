@@ -18,6 +18,7 @@ int main(int argc, char* argv[]) {
     parser.add_option("-f,--frames", params.frames, "Number of frames to concatenate");
     parser.add_option("-t,--tolerance", params.tolerance, "Number of frames before capturing");
     parser.add_option("-M,--M", params.M, "M value for RIS");
+    parser.add_flag("-i,--immediate", params.immediate, "Unlock FPS");
 
     try {
         parser.parse(argc, argv);

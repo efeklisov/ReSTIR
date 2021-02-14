@@ -143,11 +143,11 @@ void main()
             Q[i] = load(vec2(x, y));
             i++;
 
-            /* vec3 qnorm = imageLoad(vertexNormals, ivec2(x, y)).xyz; */
-            /* if (dot(vnorm, qnorm) < 0.9063) { */
-            /*     Q[i - 1] = erase; */
-            /*     continue; */
-            /* } */
+            vec3 qnorm = imageLoad(vertexNormals, ivec2(x, y)).xyz;
+            if (dot(vnorm, qnorm) < 0.9063) {
+                Q[i - 1] = erase;
+                continue;
+            }
 
             /* vec3 qpos = imageLoad(vertexPositions, ivec2(x, y)).xyz; */
             /* if (length(vpos - sizes.cameraPos) * 1.1 < length(qpos - sizes.cameraPos)) */
