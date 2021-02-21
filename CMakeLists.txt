@@ -58,6 +58,7 @@ add_executable(neo
 target_link_libraries(neo glfw glm assimp -ldl)
 
 file(COPY models/ DESTINATION models/)
+file(COPY textures/ DESTINATION textures/)
 
 execute_process(
     COMMAND sh "../recompile_shaders.sh" 
