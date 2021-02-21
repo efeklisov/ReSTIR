@@ -21,10 +21,17 @@ layout(binding = 8, set = 0) uniform Sizes {
     uint lightsSize;
     uint M;
 } sizes;
-layout(binding = 9, set = 0, rgba8) uniform image2D presentReservoirs;
-layout(binding = 10, set = 0, rgba8) uniform image2D vertexPositions;
-layout(binding = 11, set = 0, rgba8) uniform image2D vertexNormals;
-layout(binding = 12, set = 0, rgba8) uniform image2D vertexMaterials;
+layout(binding = 9, set = 0, rgba32f) uniform image2D presentReservoirs;
+layout(binding = 10, set = 0, rgba32f) uniform image2D vertexPositions;
+layout(binding = 11, set = 0, rgba32f) uniform image2D vertexNormals;
+layout(binding = 12, set = 0, rgba32f) uniform image2D vertexMaterials;
+layout(binding = 13, set = 0, rgba32f) uniform image2D pastReservoirs;
+layout(binding = 14, set = 0) uniform Motion {
+    mat4 fwd;
+    /* dmat4 fwd; */
+    /* dmat4 inv; */
+    /* mat4 view; */
+} motion;
 
 float shadowBias = 0.0001f;
 float pi = 3.14159265f;
@@ -47,11 +54,11 @@ float shadowRay(vec3 origin, float shadowBias, vec3 direction, float dist) {
 
 Vertex barycentricVertex(Vertex v0, Vertex v1, Vertex v2) {
     const vec3 barycentric = vec3(1.0f - attribs.x - attribs.y, attribs.x, attribs.y);
-	vec3 origin    = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_HitTEXT;
-    vec3 normal    = v0.normal * barycentric.x + v1.normal * barycentric.y + v2.normal * barycentric.z;
-    vec2 texCoord  = v0.texCoord * barycentric.x + v1.texCoord * barycentric.y + v2.texCoord * barycentric.z;
-    vec3 tangent   = v0.tangent * barycentric.x + v1.tangent * barycentric.y + v2.tangent * barycentric.z;
-    vec3 bitangent = v0.bitangent * barycentric.x + v1.bitangent * barycentric.y + v2.bitangent * barycentric.z;
+	const vec3 origin    = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_HitTEXT;
+    const vec3 normal    = v0.normal * barycentric.x + v1.normal * barycentric.y + v2.normal * barycentric.z;
+    const vec2 texCoord  = v0.texCoord * barycentric.x + v1.texCoord * barycentric.y + v2.texCoord * barycentric.z;
+    const vec3 tangent   = v0.tangent * barycentric.x + v1.tangent * barycentric.y + v2.tangent * barycentric.z;
+    const vec3 bitangent = v0.bitangent * barycentric.x + v1.bitangent * barycentric.y + v2.bitangent * barycentric.z;
 
     return Vertex(origin, normal, texCoord, tangent, bitangent);
 }
@@ -59,6 +66,12 @@ Vertex barycentricVertex(Vertex v0, Vertex v1, Vertex v2) {
 void save(vec2 UV, reservoir r) {
     vec4 data = vec4(r.X, r.Y, r.M, r.W);
 	imageStore(presentReservoirs, ivec2(UV), data);
+}
+
+reservoir load(ivec2 UV) {
+    vec4 data = imageLoad(pastReservoirs, UV);
+    reservoir r = { data.x, data.y, data.w, data.z, 0.0f };
+    return r;
 }
 
 vec3 lightSample(Light light, float eps1, float eps2) {
@@ -71,11 +84,11 @@ float desPdf(Light light, Vertex v, vec3 lpos) {
     vec3  ldir = normalize(v.pos - lpos);
     float norm = length(v.pos - lpos);
 
-    return dot(ldir, light.normal) / (norm * norm);
+    return clamp(dot(ldir, light.normal) / (norm * norm), 0.001f, 0.999f);
 }
 
 float lgtPdf(Light light) {
-    return 2.0f / length(cross(light.ab, light.ac));
+    return clamp(2.0f / length(cross(light.ab, light.ac)), 0.001f, 0.999f);
 }
 
 float calcPdf(Vertex v, float eps1, float eps2) {
@@ -95,6 +108,21 @@ void update(inout reservoir r, float x_i, float a_i, float w_i) {
         r.Y = a_i;
     }
 }
+
+reservoir combine(Vertex v, reservoir r1, reservoir r2) {
+    reservoir s = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
+
+    if (length(vec4(r2.X, r2.Y, r2.M, r2.W)) < 0.01f)
+        return r1;
+
+    update(s, r1.X, r1.Y, r1.W * calcPdf(v, r1.X, r1.Y) * r1.M);
+    update(s, r2.X, r2.Y, r2.W * calcPdf(v, r2.X, r2.Y) * r2.M);
+
+    s.M = r1.M + r2.M;
+    s.W = s.Wsum / calcPdf(v, s.X, s.Y) / s.M;
+    return s;
+}
+
 
 void main()
 {
@@ -129,7 +157,7 @@ void main()
     Vertex v2 = vertices[instance].v[index.z];
 
     // Interpolated vertex
-    Vertex v = barycentricVertex(v0, v1, v2);
+    const Vertex v = barycentricVertex(v0, v1, v2);
 
     // Sample texture
     vec3 texColor = texture(texSamplers[nonuniformEXT(gl_InstanceCustomIndexEXT)], v.texCoord).xyz;
@@ -160,6 +188,18 @@ void main()
     if (shadow < 0.4f)
         r.W = 0.0f;
 
+    // Temporal
+    vec4 clipSpaceUV = motion.fwd * vec4(v.pos, 1.0f);
+    vec3 NDCUV = clipSpaceUV.xyz / clipSpaceUV.w;
+    vec2 textureUV = (NDCUV.xy + 1.0f) * 0.5f;
+
+    if ((textureUV.x > 0.0f) && (textureUV.x < 1.0f) && (textureUV.y > 0.0f) && (textureUV.y < 1.0f)) {
+        reservoir past = load(ivec2(textureUV * gl_LaunchSizeEXT.xy));
+        past.M = clamp(past.M, 0.0f, pow(r.M, 2));
+        r = combine(v, r, past);
+    }
+
+    // Dump
     save(gl_LaunchIDEXT.xy, r);
 	imageStore(vertexPositions, ivec2(gl_LaunchIDEXT.xy), vec4(v.pos, 0.0f));
 	imageStore(vertexNormals, ivec2(gl_LaunchIDEXT.xy), vec4(v.normal, 0.0f));

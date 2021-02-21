@@ -49,8 +49,8 @@
 #define MAX_FRAMES_IN_FLIGHT 3
 
 struct params_t {
-    uint32_t N = 4;
-    std::string method = "mis_orig";
+    uint32_t N = 1;
+    std::string method = "ReSTIR";
     bool pseudoOffline = false;
     uint32_t frames = 6;
     bool capture = false;
@@ -60,17 +60,18 @@ struct params_t {
     bool immediate = false;
 };
 
-struct MVP {
-    glm::mat4 model;
-    glm::mat4 view;
-    glm::mat4 proj;
-};
-
 struct UniformData {
     glm::mat4 viewInverse;
     glm::mat4 projInverse;
     uint32_t frameIndex;
     uint32_t N;
+};
+
+struct UniMotion {
+    glm::mat4 forward;
+    /* glm::dmat4 forward; */
+    /* glm::dmat4 inverse; */
+    /* glm::mat4 view; */
 };
 
 struct UniSizes {
@@ -130,44 +131,29 @@ class App {
             std::vector<hd::BLAS> blases;
             hd::TLAS tlas;
 
-            struct storage {
+            struct workImage {
                 hd::Image image;
                 hd::ImageView view;
+            };
 
-                hd::Image summ;
-                hd::ImageView summView;
+            struct storage {
+                workImage frame;
+                workImage summ;
             } storage;
 
             struct reservoir {
-                struct present {
-                    hd::Image image;
-                    hd::ImageView view;
-                } present;
-
-                struct vpos {
-                    hd::Image image;
-                    hd::ImageView view;
-                } vpos;
-
-                struct vnorm {
-                    hd::Image image;
-                    hd::ImageView view;
-                } vnorm;
-
-                struct vmat {
-                    hd::Image image;
-                    hd::ImageView view;
-                } vmat;
-
-                struct past {
-                    hd::Image image;
-                    hd::ImageView view;
-                } past;
+                workImage present;
+                workImage vpos;
+                workImage vnorm;
+                workImage vmat;
+                workImage swap;
+                workImage past;
             } reservoir;
 
             hd::DataBuffer<UniformData> unibuffer;
             hd::DataBuffer<UniCount> uniCount;
             hd::DataBuffer<UniFrames> uniFrames;
+            hd::DataBuffer<UniMotion> uniMotion;
         } vram;
 
         struct ram {
@@ -187,6 +173,18 @@ class App {
         hd::SBT sbt;
 
         inline auto populateInitialVRAM(hd::Model scene, std::vector<hd::Light>& lights) {
+            auto fillVRAMBuffer = [&]<class T>(std::vector<T> const& data, vk::BufferUsageFlags flags, VmaMemoryUsage usage = VMA_MEMORY_USAGE_GPU_ONLY) {
+                return hd::conjure<T>({
+                        .commandPool = graphicsPool,
+                        .queue = graphicsQueue,
+                        .allocator = allocator,
+                        .device = device,
+                        .data = data,
+                        .usage = flags,
+                        .memoryUsage = usage,
+                        });
+            };
+
             vram.vertices.reserve(scene->meshes.size());
             vram.indices.reserve(scene->meshes.size());
             vram.diffuse.reserve(scene->meshes.size());
@@ -210,34 +208,10 @@ class App {
             instanceInfo.setFlags(vk::GeometryInstanceFlagBitsKHR::eTriangleFacingCullDisable);
 
             for (uint32_t iter = 0; iter < scene->meshes.size(); iter++) {
-                vram.vertices.push_back(hd::conjure<hd::Vertex>({
-                        .commandPool = graphicsPool,
-                        .queue = graphicsQueue,
-                        .allocator = allocator,
-                        .device = device,
-                        .data = scene->meshes[iter].vertices,
-                        .usage = vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eStorageBuffer,
-                        }));
-
-                vram.indices.push_back(hd::conjure<uint32_t>({
-                        .commandPool = graphicsPool,
-                        .queue = graphicsQueue,
-                        .allocator = allocator,
-                        .device = device,
-                        .data = scene->meshes[iter].indices,
-                        .usage = vk::BufferUsageFlagBits::eIndexBuffer | vk::BufferUsageFlagBits::eStorageBuffer,
-                        }));
-
+                vram.vertices.push_back(fillVRAMBuffer(scene->meshes[iter].vertices, vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eStorageBuffer));
+                vram.indices.push_back(fillVRAMBuffer(scene->meshes[iter].indices, vk::BufferUsageFlagBits::eIndexBuffer | vk::BufferUsageFlagBits::eStorageBuffer));
                 vram.diffuse.push_back(scene->meshes[iter].diffuse[0]);
-
-                vram.materials.push_back(hd::conjure<hd::Material>({
-                        .commandPool = graphicsPool,
-                        .queue = graphicsQueue,
-                        .allocator = allocator,
-                        .device = device,
-                        .data = {scene->meshes[iter].material},
-                        .usage = vk::BufferUsageFlagBits::eStorageBuffer,
-                        }));
+                vram.materials.push_back(fillVRAMBuffer(std::vector{scene->meshes[iter].material}, vk::BufferUsageFlagBits::eStorageBuffer));
 
                 vram.blases.push_back(hd::conjure({
                         vram.vertices[iter],
@@ -260,23 +234,8 @@ class App {
                 auto lightPad = hd::Model_t::generateLightPad(lights[iter]);
                 vram_lights.push_back(lightPad.props);
 
-                auto vram_vertices = hd::conjure<hd::Vertex>({
-                        .commandPool = graphicsPool,
-                        .queue = graphicsQueue,
-                        .allocator = allocator,
-                        .device = device,
-                        .data = lightPad.vertices,
-                        .usage = vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eStorageBuffer,
-                        });
-
-                auto vram_indices = hd::conjure<uint32_t>({
-                        .commandPool = graphicsPool,
-                        .queue = graphicsQueue,
-                        .allocator = allocator,
-                        .device = device,
-                        .data = lightPad.indices,
-                        .usage = vk::BufferUsageFlagBits::eIndexBuffer | vk::BufferUsageFlagBits::eStorageBuffer,
-                        });
+                auto vram_vertices = fillVRAMBuffer(lightPad.vertices, vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eStorageBuffer);
+                auto vram_indices = fillVRAMBuffer(lightPad.indices, vk::BufferUsageFlagBits::eIndexBuffer | vk::BufferUsageFlagBits::eStorageBuffer);
 
                 vram.blases.push_back(hd::conjure({
                         vram_vertices,
@@ -292,24 +251,9 @@ class App {
                 instances.push_back(instanceInfo);
             }
 
-            vram.lights = hd::conjure<hd::VRAM_Light>({
-                    .commandPool = graphicsPool,
-                    .queue = graphicsQueue,
-                    .allocator = allocator,
-                    .device = device,
-                    .data = vram_lights,
-                    .usage = vk::BufferUsageFlagBits::eStorageBuffer,
-                    });
+            vram.lights = fillVRAMBuffer(vram_lights, vk::BufferUsageFlagBits::eStorageBuffer);
 
-            auto instbuffer = hd::conjure<vk::AccelerationStructureInstanceKHR>({
-                    .commandPool = graphicsPool,
-                    .queue = graphicsQueue,
-                    .allocator = allocator,
-                    .device = device,
-                    .data = instances,
-                    .usage = vk::BufferUsageFlagBits::eAccelerationStructureBuildInputReadOnlyKHR,
-                    .memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU,
-                    });
+            auto instbuffer = fillVRAMBuffer(instances, vk::BufferUsageFlagBits::eAccelerationStructureBuildInputReadOnlyKHR, VMA_MEMORY_USAGE_CPU_TO_GPU);
 
             vram.tlas = hd::conjure({
                     instbuffer,
@@ -325,16 +269,23 @@ class App {
             uniSizes.lightsSize = lights.size();
             uniSizes.M = params.M;
 
-            vram.uniSizes = hd::conjure<UniSizes>({
-                    .commandPool = graphicsPool,
-                    .queue = graphicsQueue,
-                    .allocator = allocator,
-                    .device = device,
-                    .data = {uniSizes},
-                    .usage = vk::BufferUsageFlagBits::eUniformBuffer,
-                    .memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU,
-                    });
+            auto allocVRAMUniBuffer = [&]<class T>(hd::DataBuffer<T>& buffer, T const& dataStruct) {
+                buffer = hd::conjure<T>({
+                        .commandPool = graphicsPool,
+                        .queue = graphicsQueue,
+                        .allocator = allocator,
+                        .device = device,
+                        .data = {dataStruct},
+                        .usage = vk::BufferUsageFlagBits::eUniformBuffer,
+                        .memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU,
+                        });
+            };
 
+            allocVRAMUniBuffer(vram.unibuffer, {});
+            allocVRAMUniBuffer(vram.uniCount,  {});
+            allocVRAMUniBuffer(vram.uniFrames, {});
+            allocVRAMUniBuffer(vram.uniMotion, {});
+            allocVRAMUniBuffer(vram.uniSizes,  uniSizes);
         }
 
         constexpr auto selectFeatures() {
@@ -554,6 +505,7 @@ class App {
                         bind(4, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute),
                         bind(5, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute),
                         bind(6, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute),
+                        bind(7, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute),
                     },
                     });
 
@@ -609,6 +561,8 @@ class App {
                         bind(10, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eClosestHitKHR),
                         bind(11, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eClosestHitKHR),
                         bind(12, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eClosestHitKHR),
+                        bind(13, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eClosestHitKHR),
+                        bind(14, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eClosestHitKHR),
                     },
                     });
 
@@ -644,10 +598,10 @@ class App {
 
         inline auto fillSpatialSet() {
             std::vector<std::variant<vk::DescriptorImageInfo, vk::DescriptorBufferInfo>> infos;
-            infos.reserve(7);
+            infos.reserve(8);
 
             std::vector<vk::WriteDescriptorSet> writes;
-            writes.reserve(7);
+            writes.reserve(8);
 
             auto write = [&](uint32_t binding, vk::DescriptorType type, uint32_t index = 0) {
                 vk::WriteDescriptorSet writeSet{};
@@ -661,14 +615,14 @@ class App {
             };
 
             auto fill = hd::make_overload(
-                [&](uint32_t counter, vk::DescriptorImageInfo info, vk::DescriptorType type, uint32_t index = 0) {
+                [&](uint32_t counter, vk::DescriptorImageInfo const& info, vk::DescriptorType type, uint32_t index = 0) {
                     infos.push_back(info);
                     auto aWrite = write(counter, type, index);
                     aWrite.setPImageInfo(&std::get<vk::DescriptorImageInfo>(infos.back()));
                     writes.push_back(aWrite);
                 },
 
-                [&](uint32_t counter, vk::DescriptorBufferInfo info, vk::DescriptorType type, uint32_t index = 0) {
+                [&](uint32_t counter, vk::DescriptorBufferInfo const& info, vk::DescriptorType type, uint32_t index = 0) {
                     infos.push_back(info);
                     auto aWrite = write(counter, type, index);
                     aWrite.setPBufferInfo(&std::get<vk::DescriptorBufferInfo>(infos.back()));
@@ -676,13 +630,14 @@ class App {
                 }
             );
 
-            fill(0, vram.storage.view->writeInfo(vk::ImageLayout::eGeneral), vk::DescriptorType::eStorageImage);
+            fill(0, vram.storage.frame.view->writeInfo(vk::ImageLayout::eGeneral), vk::DescriptorType::eStorageImage);
             fill(1, vram.reservoir.present.view->writeInfo(vk::ImageLayout::eGeneral), vk::DescriptorType::eStorageImage);
             fill(2, vram.uniFrames->writeInfo(), vk::DescriptorType::eUniformBuffer);
             fill(3, vram.lights->writeInfo(), vk::DescriptorType::eStorageBuffer);
             fill(4, vram.reservoir.vpos.view->writeInfo(vk::ImageLayout::eGeneral), vk::DescriptorType::eStorageImage);
             fill(5, vram.reservoir.vnorm.view->writeInfo(vk::ImageLayout::eGeneral), vk::DescriptorType::eStorageImage);
             fill(6, vram.reservoir.vmat.view->writeInfo(vk::ImageLayout::eGeneral), vk::DescriptorType::eStorageImage);
+            fill(7, vram.reservoir.swap.view->writeInfo(vk::ImageLayout::eGeneral), vk::DescriptorType::eStorageImage);
 
             device->raw().updateDescriptorSets(writes, nullptr);
         }
@@ -706,14 +661,14 @@ class App {
             };
 
             auto fill = hd::make_overload(
-                [&](uint32_t counter, vk::DescriptorImageInfo info, vk::DescriptorType type, uint32_t index = 0) {
+                [&](uint32_t counter, vk::DescriptorImageInfo const& info, vk::DescriptorType type, uint32_t index = 0) {
                     infos.push_back(info);
                     auto aWrite = write(counter, type, index);
                     aWrite.setPImageInfo(&std::get<vk::DescriptorImageInfo>(infos.back()));
                     writes.push_back(aWrite);
                 },
 
-                [&](uint32_t counter, vk::DescriptorBufferInfo info, vk::DescriptorType type, uint32_t index = 0) {
+                [&](uint32_t counter, vk::DescriptorBufferInfo const& info, vk::DescriptorType type, uint32_t index = 0) {
                     infos.push_back(info);
                     auto aWrite = write(counter, type, index);
                     aWrite.setPBufferInfo(&std::get<vk::DescriptorBufferInfo>(infos.back()));
@@ -721,8 +676,8 @@ class App {
                 }
             );
 
-            fill(0, vram.storage.view->writeInfo(vk::ImageLayout::eGeneral), vk::DescriptorType::eStorageImage);
-            fill(1, vram.storage.summView->writeInfo(vk::ImageLayout::eGeneral), vk::DescriptorType::eStorageImage);
+            fill(0, vram.storage.frame.view->writeInfo(vk::ImageLayout::eGeneral), vk::DescriptorType::eStorageImage);
+            fill(1, vram.storage.summ.view->writeInfo(vk::ImageLayout::eGeneral), vk::DescriptorType::eStorageImage);
             fill(2, vram.uniCount->writeInfo(), vk::DescriptorType::eUniformBuffer);
 
             device->raw().updateDescriptorSets(writes, nullptr);
@@ -730,10 +685,10 @@ class App {
 
         inline auto fillRaySet() {
             std::vector<std::variant<vk::DescriptorImageInfo, vk::DescriptorBufferInfo, vk::WriteDescriptorSetAccelerationStructureKHR>> infos;
-            infos.reserve(9 + 4 * vram.vertices.size());
+            infos.reserve(12 + 4 * vram.vertices.size());
 
             std::vector<vk::WriteDescriptorSet> writes;
-            writes.reserve(9 + 4 * vram.vertices.size());
+            writes.reserve(12 + 4 * vram.vertices.size());
 
             auto write = [&](uint32_t binding, vk::DescriptorType type, uint32_t index = 0) {
                 vk::WriteDescriptorSet writeSet{};
@@ -747,21 +702,21 @@ class App {
             };
 
             auto fill = hd::make_overload(
-                [&](uint32_t counter, vk::WriteDescriptorSetAccelerationStructureKHR info, vk::DescriptorType type, uint32_t index = 0) {
+                [&](uint32_t counter, vk::WriteDescriptorSetAccelerationStructureKHR const& info, vk::DescriptorType type, uint32_t index = 0) {
                     infos.push_back(info);
                     auto aWrite = write(counter, type, index);
                     aWrite.setPNext(&std::get<vk::WriteDescriptorSetAccelerationStructureKHR>(infos.back()));
                     writes.push_back(aWrite);
                 },
 
-                [&](uint32_t counter, vk::DescriptorImageInfo info, vk::DescriptorType type, uint32_t index = 0) {
+                [&](uint32_t counter, vk::DescriptorImageInfo const& info, vk::DescriptorType type, uint32_t index = 0) {
                     infos.push_back(info);
                     auto aWrite = write(counter, type, index);
                     aWrite.setPImageInfo(&std::get<vk::DescriptorImageInfo>(infos.back()));
                     writes.push_back(aWrite);
                 },
 
-                [&](uint32_t counter, vk::DescriptorBufferInfo info, vk::DescriptorType type, uint32_t index = 0) {
+                [&](uint32_t counter, vk::DescriptorBufferInfo const& info, vk::DescriptorType type, uint32_t index = 0) {
                     infos.push_back(info);
                     auto aWrite = write(counter, type, index);
                     aWrite.setPBufferInfo(&std::get<vk::DescriptorBufferInfo>(infos.back()));
@@ -770,7 +725,7 @@ class App {
             );
 
             fill(0, vram.tlas->writeInfo(), vk::DescriptorType::eAccelerationStructureKHR);
-            fill(1, vram.storage.view->writeInfo(vk::ImageLayout::eGeneral), vk::DescriptorType::eStorageImage);
+            fill(1, vram.storage.frame.view->writeInfo(vk::ImageLayout::eGeneral), vk::DescriptorType::eStorageImage);
             fill(2, vram.unibuffer->writeInfo(), vk::DescriptorType::eUniformBuffer);
             fill(7, vram.lights->writeInfo(), vk::DescriptorType::eStorageBuffer);
             fill(8, vram.uniSizes->writeInfo(), vk::DescriptorType::eUniformBuffer);
@@ -778,6 +733,8 @@ class App {
             fill(10, vram.reservoir.vpos.view->writeInfo(vk::ImageLayout::eGeneral), vk::DescriptorType::eStorageImage);
             fill(11, vram.reservoir.vnorm.view->writeInfo(vk::ImageLayout::eGeneral), vk::DescriptorType::eStorageImage);
             fill(12, vram.reservoir.vmat.view->writeInfo(vk::ImageLayout::eGeneral), vk::DescriptorType::eStorageImage);
+            fill(13, vram.reservoir.past.view->writeInfo(vk::ImageLayout::eGeneral), vk::DescriptorType::eStorageImage);
+            fill(14, vram.uniMotion->writeInfo(), vk::DescriptorType::eUniformBuffer);
 
             for (uint32_t iter = 0; iter < vram.vertices.size(); iter++) {
                 fill(3, vram.diffuse[iter]->writeInfo(vk::ImageLayout::eShaderReadOnlyOptimal), vk::DescriptorType::eCombinedImageSampler, iter);
@@ -800,11 +757,11 @@ class App {
             copyRegion.setExtent({ swapChain->extent().width, swapChain->extent().height, 1 });
 
             const struct PushWindowSize dims = {
-                vram.storage.image->extent().width,
-                vram.storage.image->extent().height,
+                vram.storage.frame.image->extent().width,
+                vram.storage.frame.image->extent().height,
             };
 
-            auto make = [&](auto image, vk::ImageLayout srcLayout, vk::ImageLayout dstLayout, 
+            auto make = [&](auto const& image, vk::ImageLayout srcLayout, vk::ImageLayout dstLayout, 
                     vk::AccessFlags srcAccess, vk::AccessFlags dstAccess) {
 
                 vk::ImageMemoryBarrier barrier = {};
@@ -820,8 +777,8 @@ class App {
                 return barrier;
             };
 
-            auto engage = [&](auto& barriers, vk::PipelineStageFlags srcStage, vk::PipelineStageFlags dstStage) {
-                buffer->raw().pipelineBarrier(srcStage, dstStage, vk::DependencyFlags{0}, nullptr, nullptr, barriers);
+            auto engage = [&](vk::PipelineStageFlags srcStage, vk::PipelineStageFlags dstStage, auto const& ...args) {
+                buffer->raw().pipelineBarrier(srcStage, dstStage, vk::DependencyFlags{0}, nullptr, nullptr, { args... });
             };
 
             vk::ClearColorValue clearColor = std::array<float, 4>{0.0f, 0.0f, 0.0f, 0.0f};
@@ -845,150 +802,103 @@ class App {
                     1
                     );
 
-            std::vector<vk::ImageMemoryBarrier> traceToSpatial;
-
-            traceToSpatial.push_back(make(vram.reservoir.present.image,
+            engage(vk::PipelineStageFlagBits::eRayTracingShaderKHR, vk::PipelineStageFlagBits::eComputeShader,
+                make(vram.reservoir.present.image,
                     vk::ImageLayout::eGeneral,
                     vk::ImageLayout::eGeneral,
                     vk::AccessFlagBits::eMemoryWrite,
                     vk::AccessFlagBits::eMemoryRead
-                    ));
-
-            traceToSpatial.push_back(make(vram.reservoir.vpos.image,
+                    ),
+                make(vram.reservoir.vpos.image,
                     vk::ImageLayout::eGeneral,
                     vk::ImageLayout::eGeneral,
                     vk::AccessFlagBits::eMemoryWrite,
                     vk::AccessFlagBits::eMemoryRead
-                    ));
-
-            traceToSpatial.push_back(make(vram.reservoir.vnorm.image,
+                    ),
+                make(vram.reservoir.vnorm.image,
                     vk::ImageLayout::eGeneral,
                     vk::ImageLayout::eGeneral,
                     vk::AccessFlagBits::eMemoryWrite,
                     vk::AccessFlagBits::eMemoryRead
-                    ));
-
-            traceToSpatial.push_back(make(vram.reservoir.vmat.image,
+                    ),
+                make(vram.reservoir.vmat.image,
                     vk::ImageLayout::eGeneral,
                     vk::ImageLayout::eGeneral,
                     vk::AccessFlagBits::eMemoryWrite,
                     vk::AccessFlagBits::eMemoryRead
-                    ));
-
-            engage(traceToSpatial, vk::PipelineStageFlagBits::eRayTracingShaderKHR, vk::PipelineStageFlagBits::eComputeShader);
+                    )
+                );
 
             buffer->raw().pushConstants(compPipeLayout->raw(), vk::ShaderStageFlagBits::eCompute, 0, sizeof(PushWindowSize), &dims);
 
             buffer->raw().bindDescriptorSets(vk::PipelineBindPoint::eCompute, compPipeLayout->raw(), 0, spatialDescriptorSet->raw(), nullptr);
             buffer->raw().bindPipeline(vk::PipelineBindPoint::eCompute, spatialPipeline->raw());
-            buffer->raw().dispatch(swapChain->extent().width / 32, swapChain->extent().height / 32, 1);
+            buffer->raw().dispatch(uint32_t(ceil(swapChain->extent().width / 16.0f)), uint32_t(ceil(swapChain->extent().height / 16.0f)), 1);
 
-            std::vector<vk::ImageMemoryBarrier> computeToExchange;
+            engage(vk::PipelineStageFlagBits::eComputeShader, vk::PipelineStageFlagBits::eRayTracingShaderKHR,
+                make(vram.reservoir.vpos.image,
+                    vk::ImageLayout::eGeneral,
+                    vk::ImageLayout::eGeneral,
+                    vk::AccessFlagBits::eMemoryRead,
+                    vk::AccessFlags{0}
+                    ),
+                make(vram.reservoir.vnorm.image,
+                    vk::ImageLayout::eGeneral,
+                    vk::ImageLayout::eGeneral,
+                    vk::AccessFlagBits::eMemoryRead,
+                    vk::AccessFlags{0}
+                    ),
+                make(vram.reservoir.vmat.image,
+                    vk::ImageLayout::eGeneral,
+                    vk::ImageLayout::eGeneral,
+                    vk::AccessFlagBits::eMemoryRead,
+                    vk::AccessFlags{0}
+                    )
+                );
 
-            computeToExchange.push_back(make(vram.reservoir.present.image,
+            engage(vk::PipelineStageFlagBits::eComputeShader, vk::PipelineStageFlagBits::eTransfer,
+                make(vram.reservoir.swap.image,
                     vk::ImageLayout::eGeneral,
                     vk::ImageLayout::eTransferSrcOptimal,
-                    vk::AccessFlagBits::eMemoryRead,
+                    vk::AccessFlags{0},
                     vk::AccessFlagBits::eTransferRead
-                    ));
-
-            computeToExchange.push_back(make(vram.reservoir.past.image,
+                    ),
+                make(vram.reservoir.past.image,
                     vk::ImageLayout::eGeneral,
                     vk::ImageLayout::eTransferDstOptimal,
                     vk::AccessFlags{0},
                     vk::AccessFlagBits::eTransferWrite
-                    ));
+                    )
+                );
 
-            engage(computeToExchange, vk::PipelineStageFlagBits::eComputeShader, vk::PipelineStageFlagBits::eTransfer);
-
-            buffer->raw().copyImage(
-                    vram.reservoir.present.image->raw(), vk::ImageLayout::eTransferSrcOptimal, 
-                    vram.reservoir.past.image->raw(), vk::ImageLayout::eTransferDstOptimal, 
-                    copyRegion
-                    );
-
-            std::vector<vk::ImageMemoryBarrier> pastToTrace;
-
-            pastToTrace.push_back(make(vram.reservoir.past.image,
-                    vk::ImageLayout::eTransferDstOptimal,
-                    vk::ImageLayout::eGeneral,
-                    vk::AccessFlagBits::eTransferWrite,
-                    vk::AccessFlags{0}
-                    ));
-
-            engage(pastToTrace, vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eRayTracingShaderKHR);
-
-            std::vector<vk::ImageMemoryBarrier> swapChainSync;
-
-            swapChainSync.push_back(make(swapChain->colorAttachment(i),
+            engage(vk::PipelineStageFlagBits::eTransfer | vk::PipelineStageFlagBits::eComputeShader, vk::PipelineStageFlagBits::eTransfer,
+                make(swapChain->colorAttachment(i),
                     vk::ImageLayout::eUndefined,
                     vk::ImageLayout::eTransferDstOptimal,
                     vk::AccessFlags{0},
                     vk::AccessFlagBits::eTransferWrite
-                    ));
-
-            swapChainSync.push_back(make(vram.storage.image,
+                    ),
+                make(vram.storage.frame.image,
                     vk::ImageLayout::eGeneral,
                     vk::ImageLayout::eTransferSrcOptimal,
                     vk::AccessFlagBits::eMemoryWrite,
                     vk::AccessFlagBits::eTransferRead
-                    ));
+                    )
+                );
 
-            engage(swapChainSync, vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer);
-
-            std::vector<vk::ImageMemoryBarrier> exchangeToTransfer;
-
-            exchangeToTransfer.push_back(make(vram.reservoir.present.image,
-                    vk::ImageLayout::eTransferSrcOptimal,
+            engage(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer,
+                make(vram.reservoir.present.image,
+                    vk::ImageLayout::eGeneral,
                     vk::ImageLayout::eTransferDstOptimal,
                     vk::AccessFlagBits::eTransferRead,
                     vk::AccessFlagBits::eTransferWrite
-                    ));
+                    )
+                );
 
-            exchangeToTransfer.push_back(make(vram.reservoir.vpos.image,
-                    vk::ImageLayout::eGeneral,
-                    vk::ImageLayout::eTransferDstOptimal,
-                    vk::AccessFlags{0},
-                    vk::AccessFlagBits::eTransferWrite
-                    ));
-
-            exchangeToTransfer.push_back(make(vram.reservoir.vnorm.image,
-                    vk::ImageLayout::eGeneral,
-                    vk::ImageLayout::eTransferDstOptimal,
-                    vk::AccessFlags{0},
-                    vk::AccessFlagBits::eTransferWrite
-                    ));
-
-            exchangeToTransfer.push_back(make(vram.reservoir.vmat.image,
-                    vk::ImageLayout::eGeneral,
-                    vk::ImageLayout::eTransferDstOptimal,
-                    vk::AccessFlags{0},
-                    vk::AccessFlagBits::eTransferWrite
-                    ));
-
-            engage(exchangeToTransfer, vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer);
-
-            buffer->raw().clearColorImage(
-                    vram.reservoir.vmat.image->raw(), 
-                    vk::ImageLayout::eTransferDstOptimal, 
-                    clearColor, 
-                    sRange
-                    );
-
-
-            buffer->raw().clearColorImage(
-                    vram.reservoir.vnorm.image->raw(), 
-                    vk::ImageLayout::eTransferDstOptimal, 
-                    clearColor, 
-                    sRange
-                    );
-
-
-            buffer->raw().clearColorImage(
-                    vram.reservoir.vpos.image->raw(), 
-                    vk::ImageLayout::eTransferDstOptimal, 
-                    clearColor, 
-                    sRange
+            buffer->raw().copyImage(
+                    vram.reservoir.swap.image->raw(), vk::ImageLayout::eTransferSrcOptimal, 
+                    vram.reservoir.past.image->raw(), vk::ImageLayout::eTransferDstOptimal, 
+                    copyRegion
                     );
 
             buffer->raw().clearColorImage(
@@ -999,60 +909,52 @@ class App {
                     );
 
             buffer->raw().copyImage(
-                    vram.storage.image->raw(), vk::ImageLayout::eTransferSrcOptimal, 
+                    vram.storage.frame.image->raw(), vk::ImageLayout::eTransferSrcOptimal, 
                     swapChain->colorAttachment(i)->raw(), vk::ImageLayout::eTransferDstOptimal, 
                     copyRegion
                     );
 
-            std::vector<vk::ImageMemoryBarrier> transferToBottom;
-
-            transferToBottom.push_back(make(vram.reservoir.present.image,
+            engage(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eRayTracingShaderKHR,
+                make(vram.reservoir.past.image,
                     vk::ImageLayout::eTransferDstOptimal,
                     vk::ImageLayout::eGeneral,
                     vk::AccessFlagBits::eTransferWrite,
                     vk::AccessFlags{0}
-                    ));
+                    )
+                );
 
-            transferToBottom.push_back(make(vram.reservoir.vpos.image,
+            engage(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eComputeShader,
+                make(vram.reservoir.swap.image,
+                    vk::ImageLayout::eTransferSrcOptimal,
+                    vk::ImageLayout::eGeneral,
+                    vk::AccessFlagBits::eTransferWrite,
+                    vk::AccessFlags{0}
+                    )
+            );
+
+            engage(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eRayTracingShaderKHR,
+                make(vram.reservoir.present.image,
                     vk::ImageLayout::eTransferDstOptimal,
                     vk::ImageLayout::eGeneral,
                     vk::AccessFlagBits::eTransferWrite,
                     vk::AccessFlags{0}
-                    ));
-
-            transferToBottom.push_back(make(vram.reservoir.vnorm.image,
-                    vk::ImageLayout::eTransferDstOptimal,
-                    vk::ImageLayout::eGeneral,
-                    vk::AccessFlagBits::eTransferWrite,
-                    vk::AccessFlags{0}
-                    ));
-
-            transferToBottom.push_back(make(vram.reservoir.vmat.image,
-                    vk::ImageLayout::eTransferDstOptimal,
-                    vk::ImageLayout::eGeneral,
-                    vk::AccessFlagBits::eTransferWrite,
-                    vk::AccessFlags{0}
-                    ));
-
-            transferToBottom.push_back(make(vram.storage.image,
+                    ),
+                make(vram.storage.frame.image,
                     vk::ImageLayout::eTransferSrcOptimal,
                     vk::ImageLayout::eGeneral,
                     vk::AccessFlagBits::eTransferRead,
                     vk::AccessFlagBits::eMemoryWrite
-                    ));
+                    )
+            );
 
-            engage(transferToBottom, vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eRayTracingShaderKHR);
-
-            std::vector<vk::ImageMemoryBarrier> swapChainPassthrough;
-
-            swapChainPassthrough.push_back(make(swapChain->colorAttachment(i),
+            engage(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer,
+                make(swapChain->colorAttachment(i),
                     vk::ImageLayout::eTransferDstOptimal,
                     vk::ImageLayout::ePresentSrcKHR,
                     vk::AccessFlagBits::eTransferWrite,
                     vk::AccessFlagBits::eMemoryRead
-                    ));
-
-            engage(swapChainPassthrough, vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer);
+                    )
+            );
 
             buffer->end();
         }
@@ -1068,8 +970,8 @@ class App {
             copyRegion.setExtent({ swapChain->extent().width, swapChain->extent().height, 1 });
 
             const struct PushWindowSize dims = {
-                vram.storage.image->extent().width,
-                vram.storage.image->extent().height,
+                vram.storage.frame.image->extent().width,
+                vram.storage.frame.image->extent().height,
             };
 
             buffer->begin();
@@ -1099,14 +1001,14 @@ class App {
                     });
 
             buffer->transitionImageLayout({
-                    vram.storage.image->raw(),
+                    vram.storage.frame.image->raw(),
                     vk::ImageLayout::eGeneral,
                     vk::ImageLayout::eTransferSrcOptimal,
                     sRange,
                     });
 
             buffer->raw().copyImage(
-                    vram.storage.image->raw(), vk::ImageLayout::eTransferSrcOptimal, 
+                    vram.storage.frame.image->raw(), vk::ImageLayout::eTransferSrcOptimal, 
                     swapChain->colorAttachment(i)->raw(), vk::ImageLayout::eTransferDstOptimal, 
                     copyRegion
                     );
@@ -1119,7 +1021,7 @@ class App {
                     });
 
             buffer->transitionImageLayout({
-                    vram.storage.image->raw(),
+                    vram.storage.frame.image->raw(),
                     vk::ImageLayout::eTransferSrcOptimal,
                     vk::ImageLayout::eGeneral,
                     sRange,
@@ -1130,8 +1032,8 @@ class App {
 
         inline auto fillSummBuffer(hd::CommandBuffer buffer, uint32_t i) {
             const struct PushWindowSize dims = {
-                vram.storage.image->extent().width,
-                vram.storage.image->extent().height,
+                vram.storage.frame.image->extent().width,
+                vram.storage.frame.image->extent().height,
             };
 
             buffer->begin();
@@ -1140,7 +1042,7 @@ class App {
 
             buffer->raw().bindDescriptorSets(vk::PipelineBindPoint::eCompute, compPipeLayout->raw(), 0, summDescriptorSet->raw(), nullptr);
             buffer->raw().bindPipeline(vk::PipelineBindPoint::eCompute, summPipeline->raw());
-            buffer->raw().dispatch(swapChain->extent().width / 16, swapChain->extent().height / 16, 1);
+            buffer->raw().dispatch(uint32_t(ceil(swapChain->extent().width / 16.0f)), uint32_t(ceil(swapChain->extent().height / 16.0f)), 1);
 
             buffer->end();
         }
@@ -1148,7 +1050,7 @@ class App {
         inline auto fillSaveBuffer(hd::CommandBuffer buffer, uint32_t i) {
             vk::ImageSubresourceRange sRange = { vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1 };
 
-            auto source = (params.accumulate) ? vram.storage.summ : vram.storage.image;
+            auto source = (params.accumulate) ? vram.storage.summ.image : vram.storage.frame.image;
 
             buffer->begin();
 
@@ -1195,8 +1097,8 @@ class App {
                     .presentMode = present,
                     });
 
-            auto allocVRAMImage = [&](hd::Image& image, hd::ImageView& view, vk::Format format, vk::ImageUsageFlags flags, bool clear = false) {
-                image = hd::conjure({
+            auto allocWorkImage = [&](vram::workImage& img, vk::Format format, vk::ImageUsageFlags flags, bool clear = false) {
+                img.image = hd::conjure({
                         .allocator = allocator,
                         .extent = swapChain->extent(),
                         .format = format,
@@ -1207,7 +1109,7 @@ class App {
                 {
                     auto cmd = graphicsPool->singleTimeBegin();
                     cmd->transitionImageLayout({
-                            .image = image,
+                            .image = img.image,
                             .layout = vk::ImageLayout::eGeneral,
                             });
 
@@ -1215,34 +1117,28 @@ class App {
                         vk::ClearColorValue color = std::array<float, 4>{0.0f, 0.0f, 0.0f, 0.0f};
                         vk::ImageSubresourceRange range = {vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1};
 
-                        cmd->raw().clearColorImage(image->raw(), vk::ImageLayout::eGeneral, color, range);
+                        cmd->raw().clearColorImage(img.image->raw(), vk::ImageLayout::eGeneral, color, range);
                     }
                     graphicsPool->singleTimeEnd(cmd, graphicsQueue);
                 }
 
-                view = hd::conjure({
-                        .image = image->raw(),
+                img.view = hd::conjure({
+                        .image = img.image->raw(),
                         .device = device,
-                        .format = image->format(),
-                        .range = image->range(),
+                        .format = img.image->format(),
+                        .range = img.image->range(),
                         .type = vk::ImageViewType::e2D,
                         });
             };
 
-            allocVRAMImage(vram.storage.image, vram.storage.view, swapChain->format(), 
-                    vk::ImageUsageFlagBits::eTransferSrc);
-            allocVRAMImage(vram.storage.summ, vram.storage.summView, swapChain->format(), 
-                    vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst, true);
-            allocVRAMImage(vram.reservoir.present.image, vram.reservoir.present.view, vk::Format::eR32G32B32A32Sfloat, 
-                    vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst, true);
-            allocVRAMImage(vram.reservoir.vnorm.image, vram.reservoir.vnorm.view, vk::Format::eR32G32B32A32Sfloat, 
-                    vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst, true);
-            allocVRAMImage(vram.reservoir.vmat.image, vram.reservoir.vmat.view, vk::Format::eR32G32B32A32Sfloat, 
-                    vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst, true);
-            allocVRAMImage(vram.reservoir.vpos.image, vram.reservoir.vpos.view, vk::Format::eR32G32B32A32Sfloat, 
-                    vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst, true);
-            allocVRAMImage(vram.reservoir.past.image, vram.reservoir.past.view, vk::Format::eR32G32B32A32Sfloat, 
-                    vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst, true);
+            allocWorkImage(vram.storage.frame, swapChain->format(), vk::ImageUsageFlagBits::eTransferSrc);
+            allocWorkImage(vram.storage.summ, swapChain->format(), vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst, true);
+            allocWorkImage(vram.reservoir.present, vk::Format::eR32G32B32A32Sfloat, vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst, true);
+            allocWorkImage(vram.reservoir.vnorm, vk::Format::eR32G32B32A32Sfloat, vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst, true);
+            allocWorkImage(vram.reservoir.vmat, vk::Format::eR32G32B32A32Sfloat, vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst, true);
+            allocWorkImage(vram.reservoir.vpos, vk::Format::eR32G32B32A32Sfloat, vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst, true);
+            allocWorkImage(vram.reservoir.past, vk::Format::eR32G32B32A32Sfloat, vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst, true);
+            allocWorkImage(vram.reservoir.swap, vk::Format::eR32G32B32A32Sfloat, vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst, true);
 
             ram.saveImage = hd::conjure({
                     .allocator = allocator,
@@ -1261,24 +1157,6 @@ class App {
                         });
                 graphicsPool->singleTimeEnd(cmd, graphicsQueue);
             }
-
-            auto allocVRAMBuffer = [&]<class T>(hd::DataBuffer<T>& buffer) {
-                T uniData{};
-
-                buffer = hd::conjure<T>({
-                        .commandPool = graphicsPool,
-                        .queue = graphicsQueue,
-                        .allocator = allocator,
-                        .device = device,
-                        .data = {uniData},
-                        .usage = vk::BufferUsageFlagBits::eUniformBuffer,
-                        .memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU,
-                        });
-            };
-
-            allocVRAMBuffer(vram.unibuffer);
-            allocVRAMBuffer(vram.uniCount);
-            allocVRAMBuffer(vram.uniFrames);
 
             rayDescriptorPool = hd::conjure({
                     .device = device,
@@ -1317,10 +1195,10 @@ class App {
             device->waitIdle();
 
             rayCmdBuffers.clear();
-            vram.unibuffer.reset();
-            vram.uniCount.reset();
-            vram.uniFrames.reset();
             ram.saveImage.reset();
+            summDescriptorSet.reset();
+            spatialDescriptorSet.reset();
+            rayDescriptorSet.reset();
             vram.reservoir.present.image.reset();
             vram.reservoir.present.view.reset();
             vram.reservoir.vpos.image.reset();
@@ -1331,8 +1209,10 @@ class App {
             vram.reservoir.vmat.view.reset();
             vram.reservoir.past.image.reset();
             vram.reservoir.past.view.reset();
-            vram.storage.view.reset();
-            vram.storage.image.reset();
+            vram.reservoir.swap.image.reset();
+            vram.reservoir.swap.view.reset();
+            vram.storage.frame.view.reset();
+            vram.storage.frame.image.reset();
             swapChain.reset();
 
             device->updateSurfaceInfo();
@@ -1348,37 +1228,44 @@ class App {
         }
 
         void updateUnibuffer() {
-            const float aspect = static_cast<float>(swapChain->extent().width) / static_cast<float>(swapChain->extent().height);
-            const float cameraSpeed = 0.15f;
-            const float cameraRotateSpeed = 0.06f;
+            static auto startTime = std::chrono::high_resolution_clock::now();
 
-            static float rotateYAngle = glm::pi<float>();
-            static float rotateZAngle = -glm::half_pi<float>();
+            auto currentTime = std::chrono::high_resolution_clock::now();
+            const double deltaTime = std::chrono::duration<double, std::chrono::seconds::period>(currentTime - startTime).count();
+
+            startTime = currentTime;
+
+            const float aspect = static_cast<float>(swapChain->extent().width) / static_cast<float>(swapChain->extent().height);
+            const float cameraSpeed = 8.0 * deltaTime;
+            const float cameraRotateSpeed = 3.0 * deltaTime;
+
+            static float rotateXAngle = 0.0f;
+            static float rotateYAngle = glm::half_pi<float>();
+            static float rotateZAngle = glm::pi<float>();
 
             static glm::vec3 cameraPos = glm::vec3(13.5f, -3.0f, 0.0f);
             static glm::vec3 cameraForward = glm::vec3(0.0f, 0.0f, 1.0f);
-            static glm::vec3 cameraLeft = glm::vec3(1.0f, 0.0f, 0.0f);
+            static glm::vec3 cameraRight = glm::vec3(1.0f, 0.0f, 0.0f);
             static glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
 
-            auto perspective = glm::perspective(glm::radians(60.0f), aspect, 0.1f, 512.0f);
-            auto translate = glm::translate(glm::mat4(1.0f), cameraPos);
-            auto rotateY = glm::rotate(glm::mat4(1.0f), rotateYAngle, glm::vec3(0.0f, 0.0f, 1.0f));
-            auto rotateZ = glm::rotate(glm::mat4(1.0f), rotateZAngle, glm::vec3(0.0f, 1.0f, 0.0f));
+            const auto perspective = glm::perspective(glm::radians(60.0f), aspect, 0.1f, 512.0f); // Only fov and aspect matter
+            const auto view = [&]() {
+                const auto translate = glm::translate(glm::mat4(1.0f), cameraPos);
+                const auto rotate = glm::mat4_cast(glm::quat(glm::vec3(rotateXAngle, rotateYAngle, rotateZAngle)));
 
-            UniformData uniData {};
-            uniData.projInverse = glm::inverse(perspective * glm::mat4(1.0f));
-            uniData.viewInverse = glm::inverse(rotateZ * rotateY * translate * glm::mat4(1.0f));
-            uniData.frameIndex = globalFrameCount;
-            uniData.N = params.N;
+                return rotate * translate;
+            }();
+            static auto oldView = view;
 
-            {
-                auto data = vram.unibuffer->map();
-                memcpy(data, &uniData, sizeof(UniformData));
-                vram.unibuffer->unmap();
-            }
+            const UniformData uniData {
+                .viewInverse = glm::inverse(view),
+                .projInverse = glm::inverse(perspective),
+                .frameIndex = globalFrameCount,
+                .N = params.N,
+            };
 
             cameraForward = glm::normalize(glm::vec3(uniData.viewInverse[2]));
-            cameraLeft = glm::normalize(glm::vec3(uniData.viewInverse[0]));
+            cameraRight = glm::normalize(glm::vec3(uniData.viewInverse[0]));
             cameraUp = glm::normalize(glm::vec3(uniData.viewInverse[1]));
 
             if (glfwGetKey(window->raw(), GLFW_KEY_W) == GLFW_PRESS)
@@ -1386,38 +1273,48 @@ class App {
             if (glfwGetKey(window->raw(), GLFW_KEY_S) == GLFW_PRESS)
                 cameraPos += cameraForward * -cameraSpeed;
             if (glfwGetKey(window->raw(), GLFW_KEY_A) == GLFW_PRESS)
-                cameraPos += cameraLeft * cameraSpeed;
+                cameraPos += cameraRight * cameraSpeed;
             if (glfwGetKey(window->raw(), GLFW_KEY_D) == GLFW_PRESS)
-                cameraPos += cameraLeft * -cameraSpeed;
+                cameraPos += cameraRight * -cameraSpeed;
             if (glfwGetKey(window->raw(), GLFW_KEY_SPACE) == GLFW_PRESS)
                 cameraPos += cameraUp * cameraSpeed;
             if (glfwGetKey(window->raw(), GLFW_KEY_BACKSPACE) == GLFW_PRESS)
                 cameraPos += cameraUp * -cameraSpeed;
 
             if (glfwGetKey(window->raw(), GLFW_KEY_Q) == GLFW_PRESS)
-                rotateZAngle += -cameraRotateSpeed;
+                rotateYAngle += cameraRotateSpeed;
             if (glfwGetKey(window->raw(), GLFW_KEY_E) == GLFW_PRESS)
-                rotateZAngle += cameraRotateSpeed;
+                rotateYAngle += -cameraRotateSpeed;
 
-            UniCount uniCount{};
-            uniCount.count = (globalFrameCount == params.frames) ? (params.frames - (params.tolerance + 1)) : 1;
+            const UniCount uniCount{
+                .count = (globalFrameCount == params.frames) ? (params.frames - (params.tolerance + 1)) : 1,
+            };
 
-            {
-                auto data = vram.uniCount->map();
-                memcpy(data, &uniCount, sizeof(UniCount));
-                vram.uniCount->unmap();
-            }
+            const UniFrames uniFrames{
+                .lightsSize = uniSizes.lightsSize,
+                .frames = globalFrameCount,
+                .cameraPos = glm::vec3(uniData.viewInverse[3]),
+            };
 
-            UniFrames uniFrames{};
-            uniFrames.cameraPos = glm::vec3(uniData.viewInverse[3]);
-            uniFrames.lightsSize = uniSizes.lightsSize;
-            uniFrames.frames = globalFrameCount;
+            const UniMotion uniMotion{
+                .forward = glm::mat4(perspective) * glm::mat4(oldView),
+                /* .forward = glm::dmat4(perspective) * glm::dmat4(oldView), */
+                /* .inverse = glm::inverse(glm::dmat4(view)) * glm::inverse(glm::dmat4(perspective)), */
+                /* .view = uniData.viewInverse, */
+            };
 
-            {
-                auto data = vram.uniFrames->map();
-                memcpy(data, &uniFrames, sizeof(UniFrames));
-                vram.uniFrames->unmap();
-            }
+            oldView = view;
+
+            auto fillUniBuffer = []<class T>(auto const& uniBuffer, T const& dataStruct) {
+                const auto data = uniBuffer->map();
+                memcpy(data, &dataStruct, sizeof(T));
+                uniBuffer->unmap();
+            };
+
+            fillUniBuffer(vram.unibuffer, uniData);
+            fillUniBuffer(vram.uniCount,  uniCount);
+            fillUniBuffer(vram.uniFrames, uniFrames);
+            fillUniBuffer(vram.uniMotion, uniMotion);
         }
 
         uint32_t currentFrame = 0;

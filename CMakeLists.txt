@@ -6,8 +6,8 @@ set (CMAKE_CXX_COMPILER clang++)
 
 add_definitions (-DVULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1 -DVK_ENABLE_BETA_EXTENSIONS)
 
-set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-nullability-completeness -pthread -O3")
-# set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-nullability-completeness -pthread -O0 -g")
+# set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-nullability-completeness -pthread -O3")
+set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-nullability-completeness -pthread -O0 -g")
 
 find_package (glfw3 3.3 REQUIRED)
 find_package (glm REQUIRED)

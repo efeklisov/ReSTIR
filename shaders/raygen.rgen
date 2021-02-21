@@ -20,6 +20,7 @@ layout(location = 0) rayPayloadEXT hitPayload hitValue;
 
 void main() 
 {
+    // Raygen
     uint seed = initialSeed(gl_LaunchIDEXT.x * (cam.frameIndex + 1), gl_LaunchIDEXT.y * (cam.frameIndex + 1), 16);
 
     hitValue.color = vec3(0.0f);
