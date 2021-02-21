@@ -408,7 +408,9 @@ class App {
                     .engineName = "Hova's Engine",
                     .engineVersion = VK_MAKE_VERSION(2, 0, 0),
                     .apiVersion = VK_API_VERSION_1_2,
+#ifndef NDEBUG
                     .validationLayers = { "VK_LAYER_KHRONOS_validation" },
+#endif
                     .extensions = instanceExtensions,
                     });
 
@@ -433,7 +435,9 @@ class App {
                         VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,
                     },
                     .features = selectFeatures().res(),
+#ifndef NDEBUG
                     .validationLayers = { "VK_LAYER_KHRONOS_validation" },
+#endif
                     });
 
             allocator = hd::conjure({

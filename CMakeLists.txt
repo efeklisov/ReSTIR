@@ -1,22 +1,26 @@
-project (Raytraycing)
-cmake_minimum_required (VERSION 3.10)
+project(ReSTIR)
+cmake_minimum_required(VERSION 3.10)
 
-set (CMAKE_CXX_STANDARD 20)
-set (CMAKE_CXX_COMPILER clang++)
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_COMPILER clang++)
 
-add_definitions (-DVULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1 -DVK_ENABLE_BETA_EXTENSIONS)
+add_definitions(-DVULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1 -DVK_ENABLE_BETA_EXTENSIONS)
 
-# set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-nullability-completeness -pthread -O3")
-set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-nullability-completeness -pthread -O0 -g")
+if(CMAKE_BUILD_TYPE MATCHES Debug)
+    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-nullability-completeness -pthread -O0 -g")
+else()
+    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-nullability-completeness -pthread -O3 -DNDEBUG")
+    message("Building in release mode")
+endif()
 
-find_package (glfw3 3.3 REQUIRED)
-find_package (glm REQUIRED)
-find_package (Vulkan REQUIRED)
-find_package (Assimp REQUIRED)
+find_package(glfw3 3.3 REQUIRED)
+find_package(glm REQUIRED)
+find_package(Vulkan REQUIRED)
+find_package(Assimp REQUIRED)
 
-include_directories (src src/hdvw src/external src/engine)
+include_directories(src src/hdvw src/external src/engine)
 
-add_executable (neo 
+add_executable(neo 
     src/main.cpp 
     src/hdvw/window.cpp
     src/hdvw/instance.cpp
@@ -51,4 +55,10 @@ add_executable (neo
     src/external/stb_image_write.cpp
 )
 
-target_link_libraries (neo glfw glm assimp -ldl)
+target_link_libraries(neo glfw glm assimp -ldl)
+
+file(COPY models/ DESTINATION models/)
+
+execute_process(
+    COMMAND sh "../recompile_shaders.sh" 
+)
