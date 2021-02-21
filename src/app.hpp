@@ -146,7 +146,6 @@ class App {
                 workImage vpos;
                 workImage vnorm;
                 workImage vmat;
-                workImage swap;
                 workImage past;
             } reservoir;
 
@@ -637,7 +636,7 @@ class App {
             fill(4, vram.reservoir.vpos.view->writeInfo(vk::ImageLayout::eGeneral), vk::DescriptorType::eStorageImage);
             fill(5, vram.reservoir.vnorm.view->writeInfo(vk::ImageLayout::eGeneral), vk::DescriptorType::eStorageImage);
             fill(6, vram.reservoir.vmat.view->writeInfo(vk::ImageLayout::eGeneral), vk::DescriptorType::eStorageImage);
-            fill(7, vram.reservoir.swap.view->writeInfo(vk::ImageLayout::eGeneral), vk::DescriptorType::eStorageImage);
+            fill(7, vram.reservoir.past.view->writeInfo(vk::ImageLayout::eGeneral), vk::DescriptorType::eStorageImage);
 
             device->raw().updateDescriptorSets(writes, nullptr);
         }
@@ -853,21 +852,12 @@ class App {
                     vk::ImageLayout::eGeneral,
                     vk::AccessFlagBits::eMemoryRead,
                     vk::AccessFlags{0}
-                    )
-                );
-
-            engage(vk::PipelineStageFlagBits::eComputeShader, vk::PipelineStageFlagBits::eTransfer,
-                make(vram.reservoir.swap.image,
-                    vk::ImageLayout::eGeneral,
-                    vk::ImageLayout::eTransferSrcOptimal,
-                    vk::AccessFlags{0},
-                    vk::AccessFlagBits::eTransferRead
                     ),
                 make(vram.reservoir.past.image,
                     vk::ImageLayout::eGeneral,
-                    vk::ImageLayout::eTransferDstOptimal,
-                    vk::AccessFlags{0},
-                    vk::AccessFlagBits::eTransferWrite
+                    vk::ImageLayout::eGeneral,
+                    vk::AccessFlagBits::eMemoryWrite,
+                    vk::AccessFlags{0}
                     )
                 );
 
@@ -895,12 +885,6 @@ class App {
                     )
                 );
 
-            buffer->raw().copyImage(
-                    vram.reservoir.swap.image->raw(), vk::ImageLayout::eTransferSrcOptimal, 
-                    vram.reservoir.past.image->raw(), vk::ImageLayout::eTransferDstOptimal, 
-                    copyRegion
-                    );
-
             buffer->raw().clearColorImage(
                     vram.reservoir.present.image->raw(), 
                     vk::ImageLayout::eTransferDstOptimal, 
@@ -913,24 +897,6 @@ class App {
                     swapChain->colorAttachment(i)->raw(), vk::ImageLayout::eTransferDstOptimal, 
                     copyRegion
                     );
-
-            engage(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eRayTracingShaderKHR,
-                make(vram.reservoir.past.image,
-                    vk::ImageLayout::eTransferDstOptimal,
-                    vk::ImageLayout::eGeneral,
-                    vk::AccessFlagBits::eTransferWrite,
-                    vk::AccessFlags{0}
-                    )
-                );
-
-            engage(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eComputeShader,
-                make(vram.reservoir.swap.image,
-                    vk::ImageLayout::eTransferSrcOptimal,
-                    vk::ImageLayout::eGeneral,
-                    vk::AccessFlagBits::eTransferWrite,
-                    vk::AccessFlags{0}
-                    )
-            );
 
             engage(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eRayTracingShaderKHR,
                 make(vram.reservoir.present.image,
@@ -1138,7 +1104,6 @@ class App {
             allocWorkImage(vram.reservoir.vmat, vk::Format::eR32G32B32A32Sfloat, vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst, true);
             allocWorkImage(vram.reservoir.vpos, vk::Format::eR32G32B32A32Sfloat, vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst, true);
             allocWorkImage(vram.reservoir.past, vk::Format::eR32G32B32A32Sfloat, vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst, true);
-            allocWorkImage(vram.reservoir.swap, vk::Format::eR32G32B32A32Sfloat, vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst, true);
 
             ram.saveImage = hd::conjure({
                     .allocator = allocator,
@@ -1209,8 +1174,6 @@ class App {
             vram.reservoir.vmat.view.reset();
             vram.reservoir.past.image.reset();
             vram.reservoir.past.view.reset();
-            vram.reservoir.swap.image.reset();
-            vram.reservoir.swap.view.reset();
             vram.storage.frame.view.reset();
             vram.storage.frame.image.reset();
             swapChain.reset();

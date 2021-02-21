@@ -21,7 +21,7 @@ layout(binding = 3, set = 0, scalar) buffer Lights { Light l[]; } lights;
 layout(binding = 4, set = 0, rgba32f) uniform image2D vertexPositions;
 layout(binding = 5, set = 0, rgba32f) uniform image2D vertexNormals;
 layout(binding = 6, set = 0, rgba32f) uniform image2D vertexMaterials;
-layout(binding = 7, set = 0, rgba32f) uniform image2D swap;
+layout(binding = 7, set = 0, rgba32f) uniform image2D past;
 
 layout(push_constant) uniform params_t
 {
@@ -59,12 +59,7 @@ reservoir load(vec2 UV) {
 
 void save(vec2 UV, reservoir r) {
     vec4 data = vec4(r.X, r.Y, r.M, r.W);
-	imageStore(present, ivec2(UV), data);
-}
-
-void saveSwap(vec2 UV, reservoir r) {
-    vec4 data = vec4(r.X, r.Y, r.M, r.W);
-	imageStore(swap, ivec2(UV), data);
+	imageStore(past, ivec2(UV), data);
 }
 
 vec3 lightSample(Light light, float eps1, float eps2) {
@@ -128,8 +123,10 @@ void main()
         return;
 
     reservoir r = load(absPos);
-    if (length(vec4(r.X, r.Y, r.M, r.W)) < 0.01f)
+    if (length(vec4(r.X, r.Y, r.M, r.W)) < 0.01f) {
+        /* save(ivec2(gl_GlobalInvocationID.xy), r); */
         return;
+    }
     vec3 vpos = imageLoad(vertexPositions, absPos).xyz;
     vec3 vnorm = imageLoad(vertexNormals, absPos).xyz;
     vec3 vmat = imageLoad(vertexMaterials, absPos).xyz;
@@ -152,8 +149,8 @@ void main()
             Q[i] = load(vec2(x, y));
             i++;
 
-            if (Q[i].M < 0.01f) 
-                continue;
+            /* if (Q[i].M < 0.01f) */ 
+            /*     continue; */
 
             vec3 qnorm = imageLoad(vertexNormals, ivec2(x, y)).xyz;
             if (dot(vnorm, qnorm) < 0.9063) {
@@ -168,7 +165,7 @@ void main()
         r = combine(vpos, r, Q, seed);
     }
 
-    saveSwap(ivec2(gl_GlobalInvocationID.xy), r);
+    save(ivec2(gl_GlobalInvocationID.xy), r);
 
     // Shade
     Light light = lights.l[uint(r.X * sizes.lightsSize)];
