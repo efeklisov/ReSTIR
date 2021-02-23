@@ -36,26 +36,26 @@ namespace hd {
             SBTEntry _hit;
 
         public:
-            static SBT conjure(SBTCreateInfo ci) {
+            static SBT conjure(const SBTCreateInfo& ci) {
                 return std::make_shared<SBT_t>(ci);
             }
 
-            SBT_t(SBTCreateInfo ci);
+            SBT_t(const SBTCreateInfo& ci);
 
-            inline auto raygen() {
+            inline const auto raygen() {
                 return _raygen;
             }
 
-            inline auto miss() {
+            inline const auto miss() {
                 return _miss;
             }
 
-            inline auto hit() {
+            inline const auto hit() {
                 return _hit;
             }
     };
 
-    inline SBT conjure(SBTCreateInfo ci) {
+    inline SBT conjure(const SBTCreateInfo& ci) {
         return SBT_t::conjure(ci);
     }
 }

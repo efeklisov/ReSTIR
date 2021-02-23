@@ -22,20 +22,20 @@ namespace hd {
             vk::Instance _instance;
 
         public:
-            static Surface conjure(SurfaceCreateInfo ci) {
+            static Surface conjure(const SurfaceCreateInfo& ci) {
                 return std::make_shared<Surface_t>(ci);
             }
 
-            Surface_t(SurfaceCreateInfo ci);
+            Surface_t(const SurfaceCreateInfo& ci);
 
-            inline auto raw() {
+            inline const auto raw() {
                 return _surface;
             }
 
             ~Surface_t();
     };
 
-    inline Surface conjure(SurfaceCreateInfo ci) {
+    inline Surface conjure(const SurfaceCreateInfo& ci) {
         return Surface_t::conjure(ci);
     }
 }

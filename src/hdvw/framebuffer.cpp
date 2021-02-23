@@ -1,7 +1,7 @@
 #include <hdvw/framebuffer.hpp>
 using namespace hd;
 
-Framebuffer_t::Framebuffer_t(FramebufferCreateInfo ci) {
+Framebuffer_t::Framebuffer_t(const FramebufferCreateInfo& ci) {
     _device = ci.device->raw();
 
     vk::FramebufferCreateInfo framebufferInfo = {};

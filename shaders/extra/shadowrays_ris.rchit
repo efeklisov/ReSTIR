@@ -75,11 +75,11 @@ float desPdf(Light light, Vertex v, vec3 lpos, vec3 texColor) {
     vec3  ldir = normalize(v.pos - lpos);
     float norm = length(v.pos - lpos);
 
-    return /*BRDF* L_e * */ dot(ldir, light.normal) / (norm * norm);
+    return /*BRDF* L_e * */ clamp(dot(ldir, light.normal) / (norm * norm), 0.001f, 0.999f);
 }
 
 float lgtPdf(Light light) {
-    return 2.0f / length(cross(light.ab, light.ac));
+    return clamp(2.0f / length(cross(light.ab, light.ac)), 0.001f, 0.999f);
 }
 
 void main()

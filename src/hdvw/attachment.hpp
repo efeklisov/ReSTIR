@@ -33,22 +33,22 @@ namespace hd {
             vk::Device _device;
 
         public:
-            static Attachment conjure(AttachmentCreateInfo ci) {
+            static Attachment conjure(const AttachmentCreateInfo& ci) {
                 return std::make_shared<Attachment_t>(ci);
             }
 
-            Attachment_t(AttachmentCreateInfo ci);
+            Attachment_t(const AttachmentCreateInfo& ci);
 
-            inline auto raw() {
+            inline const auto raw() {
                 return _imageHandle;
             }
 
-            inline auto view() {
+            inline const auto view() {
                 return _view->raw();
             }
     };
 
-    inline Attachment conjure(AttachmentCreateInfo ci) {
+    inline Attachment conjure(const AttachmentCreateInfo& ci) {
         return Attachment_t::conjure(ci);
     }
 }

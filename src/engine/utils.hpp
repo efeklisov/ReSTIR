@@ -1,3 +1,6 @@
+#include <iterator>
+#include <functional>
+
 namespace hd {
     template <class... F>
     struct overload : F... {

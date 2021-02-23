@@ -53,7 +53,7 @@ namespace hd {
 
             QueueFamilyIndices findQueueFamilies(vk::PhysicalDevice physicalDevice, Surface surface);
 
-            bool checkExtensionSupport(vk::PhysicalDevice physicalDevice, std::vector<const char*>& extensions);
+            bool checkExtensionSupport(vk::PhysicalDevice physicalDevice, const std::vector<const char*>& extensions);
 
             SwapChainSupportDetails querySwapChainSupport(vk::PhysicalDevice physicalDevice, Surface surface);
 
@@ -62,7 +62,7 @@ namespace hd {
                 QueueFamilyIndices indices;
             };
 
-            DeviceSuitableReturn deviceSuitable(vk::PhysicalDevice physicalDevice, DeviceCreateInfo& ci);
+            DeviceSuitableReturn deviceSuitable(vk::PhysicalDevice physicalDevice, const DeviceCreateInfo& ci);
 
         public:
             vk::PhysicalDeviceRayTracingPipelinePropertiesKHR _rayTracingProperties{};
@@ -70,31 +70,31 @@ namespace hd {
             vk::PhysicalDeviceAccelerationStructurePropertiesKHR _aStructProperties{};
             vk::PhysicalDeviceAccelerationStructureFeaturesKHR _aStructFeatures{};
 
-            static Device conjure(DeviceCreateInfo ci) {
+            static Device conjure(const DeviceCreateInfo& ci) {
                 return std::make_shared<Device_t>(ci);
             }
 
-            Device_t(DeviceCreateInfo ci);
+            Device_t(const DeviceCreateInfo& ci);
 
             void waitIdle();
 
-            inline auto physical() {
+            inline const auto physical() {
                 return _physicalDevice;
             }
 
             vk::ResultValue<uint32_t> acquireNextImage(vk::SwapchainKHR swapChain, vk::Semaphore semaphore);
 
-            inline auto raw() {
+            inline const auto raw() {
                 return _device;
             }
 
-            inline auto indices() {
+            inline const auto indices() {
                 return _indices;
             }
 
             void updateSurfaceInfo();
 
-            inline auto swapChainSupport() {
+            inline const auto swapChainSupport() {
                 return _swapChainSupport;
             }
 
@@ -103,7 +103,7 @@ namespace hd {
             ~Device_t();
     };
 
-    inline Device conjure(DeviceCreateInfo ci) {
+    inline Device conjure(const DeviceCreateInfo& ci) {
         return Device_t::conjure(ci);
     }
 }

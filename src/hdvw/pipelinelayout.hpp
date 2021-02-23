@@ -23,20 +23,20 @@ namespace hd {
             vk::PipelineLayout _pipelineLayout;
 
         public:
-            static PipelineLayout conjure(PipelineLayoutCreateInfo ci) {
+            static PipelineLayout conjure(const PipelineLayoutCreateInfo& ci) {
                 return std::make_shared<PipelineLayout_t>(ci);
             }
 
-            PipelineLayout_t(PipelineLayoutCreateInfo ci);
+            PipelineLayout_t(const PipelineLayoutCreateInfo& ci);
 
-            inline auto raw() {
+            inline const auto raw() {
                 return _pipelineLayout;
             }
 
             ~PipelineLayout_t();
     };
 
-    inline PipelineLayout conjure(PipelineLayoutCreateInfo ci) {
+    inline PipelineLayout conjure(const PipelineLayoutCreateInfo& ci) {
         return PipelineLayout_t::conjure(ci);
     }
 };

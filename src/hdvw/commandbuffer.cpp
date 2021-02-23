@@ -1,13 +1,13 @@
 #include <hdvw/commandbuffer.hpp>
 using namespace hd;
 
-CommandBuffer_t::CommandBuffer_t(CommandBufferCreateInfo ci) {
+CommandBuffer_t::CommandBuffer_t(const CommandBufferCreateInfo& ci) {
     _device = ci.device;
     _buffer = ci.commandBuffer;
     _cmdpool = ci.commandPool;
 }
 
-void CommandBuffer_t::barrier(BarrierCreateInfo ci) {
+void CommandBuffer_t::barrier(const BarrierCreateInfo& ci) {
     vk::MemoryBarrier midBarrier = {};
     midBarrier.pNext = NULL;
     midBarrier.srcAccessMask = ci.srcAccess;
@@ -19,63 +19,7 @@ void CommandBuffer_t::barrier(BarrierCreateInfo ci) {
             );
 }
 
-void CommandBuffer_t::transitionImageLayout(TransitionImageLayoutInfo ci) {
-    vk::ImageMemoryBarrier barrier = {};
-    barrier.oldLayout = ci.image->layout();
-    barrier.newLayout = ci.layout;
-    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.image = ci.image->raw();
-    barrier.subresourceRange = ci.image->range();
-
-    vk::PipelineStageFlags sourceStage;
-    vk::PipelineStageFlags destinationStage;
-
-    if (ci.image->layout() == vk::ImageLayout::eUndefined && ci.layout == vk::ImageLayout::eTransferDstOptimal) {
-        barrier.srcAccessMask = vk::AccessFlags{0};
-        barrier.dstAccessMask = vk::AccessFlagBits::eTransferWrite;
-
-        sourceStage = vk::PipelineStageFlagBits::eTopOfPipe;
-        destinationStage = vk::PipelineStageFlagBits::eTransfer;
-    } else if (ci.image->layout() == vk::ImageLayout::eUndefined && ci.layout == vk::ImageLayout::eGeneral) {
-        barrier.srcAccessMask = vk::AccessFlags{0};
-        barrier.dstAccessMask = vk::AccessFlags{0};
-
-        sourceStage = vk::PipelineStageFlagBits::eTopOfPipe;
-        destinationStage = vk::PipelineStageFlagBits::eTopOfPipe;
-    } else if (ci.image->layout() == vk::ImageLayout::eGeneral && ci.layout == vk::ImageLayout::eTransferDstOptimal) {
-        barrier.srcAccessMask = vk::AccessFlags{0};
-        barrier.dstAccessMask = vk::AccessFlagBits::eTransferWrite;
-
-        sourceStage = vk::PipelineStageFlagBits::eTopOfPipe;
-        destinationStage = vk::PipelineStageFlagBits::eTransfer;
-    } else if (ci.image->layout() == vk::ImageLayout::eTransferDstOptimal && ci.layout == vk::ImageLayout::eGeneral) {
-        barrier.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
-        barrier.dstAccessMask = vk::AccessFlags{0};
-
-        sourceStage = vk::PipelineStageFlagBits::eTransfer;
-        destinationStage = vk::PipelineStageFlagBits::eTopOfPipe;
-    } else if (ci.image->layout() == vk::ImageLayout::eTransferDstOptimal && ci.layout == vk::ImageLayout::eTransferSrcOptimal) {
-        barrier.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
-        barrier.dstAccessMask = vk::AccessFlagBits::eTransferRead;
-
-        sourceStage = vk::PipelineStageFlagBits::eTransfer;
-        destinationStage = vk::PipelineStageFlagBits::eTransfer;
-    } else if (ci.image->layout() == vk::ImageLayout::eTransferDstOptimal && ci.layout == vk::ImageLayout::eShaderReadOnlyOptimal) {
-        barrier.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
-        barrier.dstAccessMask = vk::AccessFlagBits::eShaderRead;
-
-        sourceStage = vk::PipelineStageFlagBits::eTransfer;
-        destinationStage = vk::PipelineStageFlagBits::eFragmentShader;
-    } else {
-        throw std::invalid_argument("unsupported layout transition!");
-    }
-
-    _buffer.pipelineBarrier(sourceStage, destinationStage, vk::DependencyFlags{0}, nullptr, nullptr, barrier);
-    ci.image->setLayout(ci.layout);
-}
-
-void CommandBuffer_t::transitionImageLayout(TransitionRawImageLayoutInfo ci) {
+void CommandBuffer_t::transitionImageLayout(const TransitionImageLayoutInfo& ci) {
     vk::ImageMemoryBarrier barrier = {};
     barrier.oldLayout = ci.srcLayout;
     barrier.newLayout = ci.dstLayout;
@@ -188,7 +132,7 @@ void CommandBuffer_t::reset(bool release) {
     else _buffer.reset(vk::CommandBufferResetFlagBits::eReleaseResources);
 }
 
-void CommandBuffer_t::copy(CopyBufferToBufferInfo ci) {
+void CommandBuffer_t::copy(const CopyBufferToBufferInfo& ci) {
     vk::BufferCopy copyRegion = {};
     copyRegion.srcOffset = ci.srcOffset;
     copyRegion.dstOffset = ci.dstOffset;
@@ -200,7 +144,7 @@ void CommandBuffer_t::copy(CopyBufferToBufferInfo ci) {
     _buffer.copyBuffer(ci.srcBuffer->raw(), ci.dstBuffer->raw(), copyRegion);
 }
 
-void CommandBuffer_t::copy(CopyBufferToImageInfo ci) {
+void CommandBuffer_t::copy(const CopyBufferToImageInfo& ci) {
     vk::BufferImageCopy region = {};
     region.bufferOffset = 0;
     region.bufferRowLength = 0;
@@ -217,7 +161,7 @@ void CommandBuffer_t::copy(CopyBufferToImageInfo ci) {
     _buffer.copyBufferToImage(ci.buffer->raw(), ci.image->raw(), ci.image->layout(), region);
 }
 
-void CommandBuffer_t::beginRenderPass(RenderPassBeginInfo bi) {
+void CommandBuffer_t::beginRenderPass(const RenderPassBeginInfo& bi) {
     vk::RenderPassBeginInfo renderPassInfo = {};
     renderPassInfo.renderPass = bi.renderPass->raw();
     renderPassInfo.framebuffer = bi.framebuffer->raw();

@@ -128,7 +128,7 @@ namespace hd {
     }
 
 
-    Model_t::Model_t(ModelCreateInfo ci) {
+    Model_t::Model_t(const ModelCreateInfo& ci) {
         Assimp::Importer importer;
         const aiScene* scene = importer.ReadFile(ci.filename.data(), aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_FlipUVs | aiProcess_CalcTangentSpace);
 

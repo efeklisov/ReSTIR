@@ -1,7 +1,7 @@
 #include <hdvw/commandpool.hpp>
 using namespace hd;
 
-CommandPool_t::CommandPool_t(CommandPoolCreateInfo ci) {
+CommandPool_t::CommandPool_t(const CommandPoolCreateInfo& ci) {
     _device = ci.device->raw();
 
     vk::CommandPoolCreateInfo poolInfo = {};

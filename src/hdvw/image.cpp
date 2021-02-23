@@ -1,7 +1,7 @@
 #include <hdvw/image.hpp>
 using namespace hd;
 
-Image_t::Image_t(ImageCreateInfo ci) {
+Image_t::Image_t(const ImageCreateInfo& ci) {
     _allocator = ci.allocator;
     _imageSize = ci.extent;
     _layout = vk::ImageLayout::eUndefined;
@@ -40,7 +40,7 @@ Image_t::~Image_t() {
     _allocator->destroy(_image, _imageMemory);
 }
 
-ImageView_t::ImageView_t(ImageViewCreateInfo ci) {
+ImageView_t::ImageView_t(const ImageViewCreateInfo& ci) {
     _device = ci.device->raw();
 
     vk::ImageViewCreateInfo ivci;
@@ -56,7 +56,7 @@ ImageView_t::~ImageView_t() {
     _device.destroy(_view);
 }
 
-Sampler_t::Sampler_t(SamplerCreateInfo ci) {
+Sampler_t::Sampler_t(const SamplerCreateInfo& ci) {
     _device = ci.device->raw();
 
     vk::SamplerCreateInfo si = {};

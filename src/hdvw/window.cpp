@@ -1,7 +1,7 @@
 #include <hdvw/window.hpp>
 using namespace hd;
 
-Window_t::Window_t(WindowCreateInfo ci) {
+Window_t::Window_t(const WindowCreateInfo& ci) {
     glfwInit();
 
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);

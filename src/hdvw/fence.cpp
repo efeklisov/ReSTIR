@@ -1,7 +1,7 @@
 #include <hdvw/fence.hpp>
 using namespace hd;
 
-Fence_t::Fence_t(FenceCreateInfo ci) {
+Fence_t::Fence_t(const FenceCreateInfo& ci) {
     _device = ci.device->raw();
     
     vk::FenceCreateInfo fi = {};

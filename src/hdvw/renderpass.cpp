@@ -1,7 +1,7 @@
 #include <hdvw/renderpass.hpp>
 using namespace hd;
 
-SwapChainRenderPass_t::SwapChainRenderPass_t(SwapChainRenderPassCreateInfo ci) {
+SwapChainRenderPass_t::SwapChainRenderPass_t(const SwapChainRenderPassCreateInfo& ci) {
     _device = ci.device->raw();
 
     vk::AttachmentDescription colorAttachment = {};

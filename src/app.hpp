@@ -586,6 +586,15 @@ class App {
                     .missCount = 2,
                     .hitCount = 1,
                     });
+
+            rayDescriptorPool = hd::conjure({
+                    .device = device,
+                    .layouts = {{rayLayout, 1}, {compLayout, 2}},
+                   });
+
+            summDescriptorSet = rayDescriptorPool->allocate(1, compLayout).at(0);
+            spatialDescriptorSet = rayDescriptorPool->allocate(1, compLayout).at(0);
+            rayDescriptorSet = rayDescriptorPool->allocate(1, rayLayout).at(0);
         }
 
         hd::SwapChain swapChain;
@@ -606,28 +615,17 @@ class App {
             std::vector<vk::WriteDescriptorSet> writes;
             writes.reserve(8);
 
-            auto write = [&](uint32_t binding, vk::DescriptorType type, uint32_t index = 0) {
-                vk::WriteDescriptorSet writeSet{};
-                writeSet.dstBinding = binding;
-                writeSet.dstArrayElement = index;
-                writeSet.descriptorType = type;
-                writeSet.descriptorCount = 1;
-                writeSet.dstSet = spatialDescriptorSet->raw();
-
-                return writeSet;
-            };
-
             auto fill = hd::make_overload(
-                [&](uint32_t counter, vk::DescriptorImageInfo const& info, vk::DescriptorType type, uint32_t index = 0) {
+                [&](uint32_t binding, vk::DescriptorImageInfo const& info, vk::DescriptorType type, uint32_t index = 0) {
                     infos.push_back(info);
-                    auto aWrite = write(counter, type, index);
+                    auto aWrite = spatialDescriptorSet->writeInfo(binding, type, index);
                     aWrite.setPImageInfo(&std::get<vk::DescriptorImageInfo>(infos.back()));
                     writes.push_back(aWrite);
                 },
 
-                [&](uint32_t counter, vk::DescriptorBufferInfo const& info, vk::DescriptorType type, uint32_t index = 0) {
+                [&](uint32_t binding, vk::DescriptorBufferInfo const& info, vk::DescriptorType type, uint32_t index = 0) {
                     infos.push_back(info);
-                    auto aWrite = write(counter, type, index);
+                    auto aWrite = spatialDescriptorSet->writeInfo(binding, type, index);
                     aWrite.setPBufferInfo(&std::get<vk::DescriptorBufferInfo>(infos.back()));
                     writes.push_back(aWrite);
                 }
@@ -652,28 +650,17 @@ class App {
             std::vector<vk::WriteDescriptorSet> writes;
             writes.reserve(3);
 
-            auto write = [&](uint32_t binding, vk::DescriptorType type, uint32_t index = 0) {
-                vk::WriteDescriptorSet writeSet{};
-                writeSet.dstBinding = binding;
-                writeSet.dstArrayElement = index;
-                writeSet.descriptorType = type;
-                writeSet.descriptorCount = 1;
-                writeSet.dstSet = summDescriptorSet->raw();
-
-                return writeSet;
-            };
-
             auto fill = hd::make_overload(
-                [&](uint32_t counter, vk::DescriptorImageInfo const& info, vk::DescriptorType type, uint32_t index = 0) {
+                [&](uint32_t binding, vk::DescriptorImageInfo const& info, vk::DescriptorType type, uint32_t index = 0) {
                     infos.push_back(info);
-                    auto aWrite = write(counter, type, index);
+                    auto aWrite = summDescriptorSet->writeInfo(binding, type, index);
                     aWrite.setPImageInfo(&std::get<vk::DescriptorImageInfo>(infos.back()));
                     writes.push_back(aWrite);
                 },
 
                 [&](uint32_t counter, vk::DescriptorBufferInfo const& info, vk::DescriptorType type, uint32_t index = 0) {
                     infos.push_back(info);
-                    auto aWrite = write(counter, type, index);
+                    auto aWrite = summDescriptorSet->writeInfo(counter, type, index);
                     aWrite.setPBufferInfo(&std::get<vk::DescriptorBufferInfo>(infos.back()));
                     writes.push_back(aWrite);
                 }
@@ -693,35 +680,24 @@ class App {
             std::vector<vk::WriteDescriptorSet> writes;
             writes.reserve(12 + 4 * vram.vertices.size());
 
-            auto write = [&](uint32_t binding, vk::DescriptorType type, uint32_t index = 0) {
-                vk::WriteDescriptorSet writeSet{};
-                writeSet.dstBinding = binding;
-                writeSet.dstArrayElement = index;
-                writeSet.descriptorType = type;
-                writeSet.descriptorCount = 1;
-                writeSet.dstSet = rayDescriptorSet->raw();
-
-                return writeSet;
-            };
-
             auto fill = hd::make_overload(
-                [&](uint32_t counter, vk::WriteDescriptorSetAccelerationStructureKHR const& info, vk::DescriptorType type, uint32_t index = 0) {
+                [&](uint32_t binding, vk::WriteDescriptorSetAccelerationStructureKHR const& info, vk::DescriptorType type, uint32_t index = 0) {
                     infos.push_back(info);
-                    auto aWrite = write(counter, type, index);
+                    auto aWrite = rayDescriptorSet->writeInfo(binding, type, index);
                     aWrite.setPNext(&std::get<vk::WriteDescriptorSetAccelerationStructureKHR>(infos.back()));
                     writes.push_back(aWrite);
                 },
 
-                [&](uint32_t counter, vk::DescriptorImageInfo const& info, vk::DescriptorType type, uint32_t index = 0) {
+                [&](uint32_t binding, vk::DescriptorImageInfo const& info, vk::DescriptorType type, uint32_t index = 0) {
                     infos.push_back(info);
-                    auto aWrite = write(counter, type, index);
+                    auto aWrite = rayDescriptorSet->writeInfo(binding, type, index);
                     aWrite.setPImageInfo(&std::get<vk::DescriptorImageInfo>(infos.back()));
                     writes.push_back(aWrite);
                 },
 
-                [&](uint32_t counter, vk::DescriptorBufferInfo const& info, vk::DescriptorType type, uint32_t index = 0) {
+                [&](uint32_t binding, vk::DescriptorBufferInfo const& info, vk::DescriptorType type, uint32_t index = 0) {
                     infos.push_back(info);
-                    auto aWrite = write(counter, type, index);
+                    auto aWrite = rayDescriptorSet->writeInfo(binding, type, index);
                     aWrite.setPBufferInfo(&std::get<vk::DescriptorBufferInfo>(infos.back()));
                     writes.push_back(aWrite);
                 }
@@ -1079,8 +1055,10 @@ class App {
                 {
                     auto cmd = graphicsPool->singleTimeBegin();
                     cmd->transitionImageLayout({
-                            .image = img.image,
-                            .layout = vk::ImageLayout::eGeneral,
+                            .image = img.image->raw(),
+                            .srcLayout = vk::ImageLayout::eUndefined,
+                            .dstLayout = vk::ImageLayout::eGeneral,
+                            .range = img.image->range(),
                             });
 
                     if (clear) {
@@ -1121,21 +1099,13 @@ class App {
             {
                 auto cmd = graphicsPool->singleTimeBegin();
                 cmd->transitionImageLayout({
-                        .image = ram.saveImage,
-                        .layout = vk::ImageLayout::eGeneral,
+                        .image = ram.saveImage->raw(),
+                        .srcLayout = vk::ImageLayout::eUndefined,
+                        .dstLayout = vk::ImageLayout::eGeneral,
+                        .range = ram.saveImage->range(),
                         });
                 graphicsPool->singleTimeEnd(cmd, graphicsQueue);
             }
-
-            rayDescriptorPool = hd::conjure({
-                    .device = device,
-                    .layouts = {{rayLayout, 1}, {compLayout, 1}, {compLayout, 1}},
-                    .instances = 1,
-                   });
-
-            summDescriptorSet = rayDescriptorPool->allocate(1, compLayout).at(0);
-            spatialDescriptorSet = rayDescriptorPool->allocate(1, compLayout).at(0);
-            rayDescriptorSet = rayDescriptorPool->allocate(1, rayLayout).at(0);
 
             fillSpatialSet();
             fillSummSet();
@@ -1165,9 +1135,6 @@ class App {
 
             rayCmdBuffers.clear();
             ram.saveImage.reset();
-            summDescriptorSet.reset();
-            spatialDescriptorSet.reset();
-            rayDescriptorSet.reset();
             vram.reservoir.present.image.reset();
             vram.reservoir.present.view.reset();
             vram.reservoir.vpos.image.reset();

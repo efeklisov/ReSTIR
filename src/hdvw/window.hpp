@@ -26,11 +26,11 @@ namespace hd {
             bool evl;
 
         public:
-            static Window conjure(WindowCreateInfo ci) {
+            static Window conjure(const WindowCreateInfo& ci) {
                 return std::make_shared<Window_t>(ci);
             }
 
-            Window_t(WindowCreateInfo ci);
+            Window_t(const WindowCreateInfo& ci);
 
             bool shouldClose();
 
@@ -40,14 +40,14 @@ namespace hd {
 
             std::vector<const char *> getRequiredExtensions();
 
-            inline auto raw() {
+            inline const auto raw() {
                 return _window;
             }
 
             ~Window_t();
     };
 
-    inline Window conjure(WindowCreateInfo ci) {
+    inline Window conjure(const WindowCreateInfo& ci) {
         return Window_t::conjure(ci);
     }
 }

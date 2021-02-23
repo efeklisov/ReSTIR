@@ -10,7 +10,7 @@
 namespace hd {
     class RenderPass_t {
         public:
-            virtual vk::RenderPass raw() = 0;
+            virtual const vk::RenderPass raw() = 0;
 
     };
 
@@ -29,20 +29,20 @@ namespace hd {
             vk::Device _device;
 
         public:
-            static RenderPass conjure(SwapChainRenderPassCreateInfo ci) {
+            static RenderPass conjure(const SwapChainRenderPassCreateInfo& ci) {
                 return std::static_pointer_cast<RenderPass_t>(std::make_shared<SwapChainRenderPass_t>(ci));
             }
 
-            SwapChainRenderPass_t(SwapChainRenderPassCreateInfo ci);
+            SwapChainRenderPass_t(const SwapChainRenderPassCreateInfo& ci);
 
-            inline vk::RenderPass raw() {
+            inline const vk::RenderPass raw() {
                 return _renderPass;
             }
 
             ~SwapChainRenderPass_t();
     };
 
-    inline RenderPass conjure(SwapChainRenderPassCreateInfo ci) {
+    inline RenderPass conjure(const SwapChainRenderPassCreateInfo& ci) {
         return SwapChainRenderPass_t::conjure(ci);
     }
 }

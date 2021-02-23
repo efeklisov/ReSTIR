@@ -34,11 +34,6 @@ namespace hd {
     };
 
     struct TransitionImageLayoutInfo {
-        Image image;
-        vk::ImageLayout layout;
-    };
-
-    struct TransitionRawImageLayoutInfo {
         vk::Image image;
         vk::ImageLayout srcLayout;
         vk::ImageLayout dstLayout;
@@ -65,17 +60,15 @@ namespace hd {
             vk::Device _device;
 
         public:
-            static CommandBuffer conjure(CommandBufferCreateInfo ci) {
+            static CommandBuffer conjure(const CommandBufferCreateInfo& ci) {
                 return std::make_shared<CommandBuffer_t>(ci);
             }
 
-            CommandBuffer_t(CommandBufferCreateInfo ci);
+            CommandBuffer_t(const CommandBufferCreateInfo& ci);
 
-            void barrier(BarrierCreateInfo ci);
+            void barrier(const BarrierCreateInfo& ci);
 
-            void transitionImageLayout(TransitionImageLayoutInfo ci);
-
-            void transitionImageLayout(TransitionRawImageLayoutInfo ci);
+            void transitionImageLayout(const TransitionImageLayoutInfo& ci);
 
             void begin();
 
@@ -85,22 +78,22 @@ namespace hd {
 
             void reset(bool release = true);
 
-            void copy(CopyBufferToBufferInfo ci);
+            void copy(const CopyBufferToBufferInfo& ci);
 
-            void copy(CopyBufferToImageInfo ci);
+            void copy(const CopyBufferToImageInfo& ci);
 
-            void beginRenderPass(RenderPassBeginInfo bi);
+            void beginRenderPass(const RenderPassBeginInfo& bi);
 
             void endRenderPass(CommandBuffer buffer);
 
-            inline auto raw() {
+            inline const auto raw() {
                 return _buffer;
             }
 
             ~CommandBuffer_t();
     };
 
-    inline CommandBuffer conjure(CommandBufferCreateInfo ci) {
+    inline CommandBuffer conjure(const CommandBufferCreateInfo& ci) {
         return CommandBuffer_t::conjure(ci);
     }
 }

@@ -1,12 +1,12 @@
 #include <hdvw/descriptorpool.hpp>
 using namespace hd;
 
-DescriptorPool_t::DescriptorPool_t(DescriptorPoolCreateInfo ci) {
+DescriptorPool_t::DescriptorPool_t(const DescriptorPoolCreateInfo& ci) {
     _device = ci.device->raw();
-    _instances = ci.instances;
 
     std::map<vk::DescriptorType, uint32_t> types;
 
+    uint32_t maxSets = 0;
     for (auto& mew : ci.layouts) {
         auto layoutTypes = mew.first->types();
         auto typeMultiplier = mew.second;
@@ -16,6 +16,7 @@ DescriptorPool_t::DescriptorPool_t(DescriptorPoolCreateInfo ci) {
                 types[key] = val * typeMultiplier;
             else types[key] += val * typeMultiplier;
         }
+        maxSets += typeMultiplier;
     }
 
     std::vector<vk::DescriptorPoolSize> sizes = {};
@@ -30,13 +31,13 @@ DescriptorPool_t::DescriptorPool_t(DescriptorPoolCreateInfo ci) {
     vk::DescriptorPoolCreateInfo pci = {};
     pci.poolSizeCount = sizes.size();
     pci.pPoolSizes = sizes.data();
-    pci.maxSets = _instances * ci.layouts.size();
+    pci.maxSets = maxSets;
 
     _pool = _device.createDescriptorPool(pci);
 }
 
 std::vector<DescriptorSet> DescriptorPool_t::allocate(uint32_t count, DescriptorLayout layout) {
-    std::vector<vk::DescriptorSetLayout> layouts(count * _instances, layout->raw());
+    std::vector<vk::DescriptorSetLayout> layouts(count, layout->raw());
 
     vk::DescriptorSetAllocateInfo ai = {};
     ai.descriptorPool = _pool;

@@ -1,7 +1,7 @@
 #include <blas.hpp>
 
 namespace hd {
-    BLAS_t::BLAS_t(BLASCreateInfo ci) {
+    BLAS_t::BLAS_t(const BLASCreateInfo& ci) {
          _device = ci.device->raw();
          _allocator = ci.allocator;
 

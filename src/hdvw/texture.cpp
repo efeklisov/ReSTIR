@@ -1,7 +1,7 @@
 #include <hdvw/texture.hpp>
 using namespace hd;
 
-Texture_t::Texture_t(TextureCreateInfo ci) {
+Texture_t::Texture_t(const TextureCreateInfo& ci) {
     int texWidth, texHeight, texChannels;
     stbi_uc* pixels = stbi_load(ci.filename, &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
     VkDeviceSize imageSize = texWidth * texHeight * 4;
@@ -34,16 +34,20 @@ Texture_t::Texture_t(TextureCreateInfo ci) {
 
     auto buff = ci.commandPool->singleTimeBegin();
     buff->transitionImageLayout({
-            .image = _image,
-            .layout = vk::ImageLayout::eTransferDstOptimal,
+            .image = _image->raw(),
+            .srcLayout = vk::ImageLayout::eUndefined,
+            .dstLayout = vk::ImageLayout::eTransferDstOptimal,
+            .range = _image->range(),
             });
     buff->copy({
             .buffer = stagingBuffer,
             .image = _image,
             });
     buff->transitionImageLayout({
-            .image = _image,
-            .layout = vk::ImageLayout::eShaderReadOnlyOptimal,
+            .image = _image->raw(),
+            .srcLayout = vk::ImageLayout::eTransferDstOptimal,
+            .dstLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
+            .range = _image->range(),
             });
     ci.commandPool->singleTimeEnd(buff, ci.queue);
 

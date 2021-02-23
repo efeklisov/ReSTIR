@@ -35,42 +35,42 @@ namespace hd {
             Allocator _allocator;
 
         public:
-            static Image conjure(ImageCreateInfo ci) {
+            static Image conjure(const ImageCreateInfo& ci) {
                 return std::make_shared<Image_t>(ci);
             }
 
-            Image_t(ImageCreateInfo ci);
+            Image_t(const ImageCreateInfo& ci);
 
-            inline auto extent() {
+            inline const auto extent() {
                 return _imageSize;
             }
 
-            inline auto layout() {
+            inline const auto layout() {
                 return _layout;
             }
 
             void setLayout(vk::ImageLayout layout);
 
-            inline auto range() {
+            inline const auto range() {
                 return _range;
             }
 
-            inline auto format() {
+            inline const auto format() {
                 return _format;
             }
 
-            inline auto memory() {
+            inline const auto memory() {
                 return _imageMemory;
             }
 
-            inline auto raw() {
+            inline const auto raw() {
                 return _image;
             }
 
             ~Image_t();
     };
 
-    inline Image conjure(ImageCreateInfo ci) {
+    inline Image conjure(const ImageCreateInfo& ci) {
         return Image_t::conjure(ci);
     }
 
@@ -91,13 +91,13 @@ namespace hd {
             vk::Device _device;
 
         public:
-            static ImageView conjure(ImageViewCreateInfo ci) {
+            static ImageView conjure(const ImageViewCreateInfo& ci) {
                 return std::make_shared<ImageView_t>(ci);
             }
 
-            ImageView_t(ImageViewCreateInfo ci);
+            ImageView_t(const ImageViewCreateInfo& ci);
 
-            inline auto raw() {
+            inline const auto raw() {
                 return _view;
             }
 
@@ -112,7 +112,7 @@ namespace hd {
             ~ImageView_t();
     };
 
-    inline ImageView conjure(ImageViewCreateInfo ci) {
+    inline ImageView conjure(const ImageViewCreateInfo& ci) {
         return ImageView_t::conjure(ci);
     }
 
@@ -130,20 +130,20 @@ namespace hd {
             vk::Device _device;
 
         public:
-            static Sampler conjure(SamplerCreateInfo ci) {
+            static Sampler conjure(const SamplerCreateInfo& ci) {
                 return std::make_shared<Sampler_t>(ci);
             }
 
-            Sampler_t(SamplerCreateInfo ci);
+            Sampler_t(const SamplerCreateInfo& ci);
 
-            inline auto raw() {
+            inline const auto raw() {
                 return _sampler;
             }
 
             ~Sampler_t();
     };
 
-    inline Sampler conjure(SamplerCreateInfo ci) {
+    inline Sampler conjure(const SamplerCreateInfo& ci) {
         return Sampler_t::conjure(ci);
     }
 }

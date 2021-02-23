@@ -32,22 +32,20 @@ namespace hd {
             vk::Device _device;
 
         public:
-            static DescriptorSet conjure(DescriptorSetCreateInfo ci) {
+            static DescriptorSet conjure(const DescriptorSetCreateInfo& ci) {
                 return std::make_shared<DescriptorSet_t>(ci);
             }
 
-            DescriptorSet_t(DescriptorSetCreateInfo ci);
+            DescriptorSet_t(const DescriptorSetCreateInfo& ci);
 
-            void update(UpdateDescriptorBufferInfo ci);
+            vk::WriteDescriptorSet writeInfo(uint32_t binding, vk::DescriptorType type, uint32_t index = 0, uint32_t count = 0);
 
-            void update(UpdateDescriptorImageInfo ci);
-
-            inline auto raw() {
+            inline const auto raw() {
                 return _set;
             }
     };
 
-    inline DescriptorSet conjure(DescriptorSetCreateInfo ci) {
+    inline DescriptorSet conjure(const DescriptorSetCreateInfo& ci) {
         return DescriptorSet_t::conjure(ci);
     }
 }
