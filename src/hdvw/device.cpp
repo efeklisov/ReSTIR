@@ -51,7 +51,7 @@ QueueFamilyIndices Device_t::findQueueFamilies(vk::PhysicalDevice physicalDevice
     return indices;
 }
 
-bool Device_t::checkExtensionSupport(vk::PhysicalDevice physicalDevice, const std::vector<const char*>& extensions) {
+bool Device_t::checkExtensionSupport(vk::PhysicalDevice physicalDevice, std::vector<const char*>& extensions) {
     std::vector<vk::ExtensionProperties> availableExtensions = physicalDevice.enumerateDeviceExtensionProperties();
 
     std::set<std::string> requiredExtensions(extensions.begin(), extensions.end());
@@ -73,7 +73,7 @@ SwapChainSupportDetails Device_t::querySwapChainSupport(vk::PhysicalDevice physi
     return details;
 }
 
-Device_t::DeviceSuitableReturn Device_t::deviceSuitable(vk::PhysicalDevice physicalDevice, const DeviceCreateInfo& ci) {
+Device_t::DeviceSuitableReturn Device_t::deviceSuitable(vk::PhysicalDevice physicalDevice, DeviceCreateInfo& ci) {
     QueueFamilyIndices indices = {};
     if (ci.findQueueFamilies != nullptr)
         indices = ci.findQueueFamilies(physicalDevice, ci.surface);
@@ -93,7 +93,7 @@ Device_t::DeviceSuitableReturn Device_t::deviceSuitable(vk::PhysicalDevice physi
         && supportedFeatures.samplerAnisotropy, indices};
 }
 
-Device_t::Device_t(const DeviceCreateInfo& ci) {
+Device_t::Device_t(DeviceCreateInfo ci) {
     _surface = ci.surface->raw();
     std::vector<vk::PhysicalDevice> physDevices = ci.instance->raw().enumeratePhysicalDevices();
 

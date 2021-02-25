@@ -1,7 +1,7 @@
 #include <hdvw/pipelinelayout.hpp>
 using namespace hd;
 
-PipelineLayout_t::PipelineLayout_t(const PipelineLayoutCreateInfo& ci) {
+PipelineLayout_t::PipelineLayout_t(PipelineLayoutCreateInfo ci) {
     _device = ci.device->raw();
 
     vk::PipelineLayoutCreateInfo pipelineLayoutInfo = {};

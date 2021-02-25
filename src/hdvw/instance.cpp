@@ -5,7 +5,7 @@ VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
 
 #include <cstdlib>
 
-bool Instance_t::checkValidationLayerSupport(const std::vector<const char*>* validationLayers) {
+bool Instance_t::checkValidationLayerSupport(std::vector<const char*>* validationLayers) {
     std::vector<vk::LayerProperties> availableLayers = vk::enumerateInstanceLayerProperties();
 
     for (auto layerName : *validationLayers) {
@@ -35,7 +35,7 @@ void Instance_t::populateDebugMessengerCreateInfo(vk::DebugUtilsMessengerCreateI
     createInfo.pfnUserCallback = debugCallback;
 }
 
-Instance_t::Instance_t(const InstanceCreateInfo& ci) {
+Instance_t::Instance_t(InstanceCreateInfo ci) {
     evl = ci.validationLayers.size() > 0;
 
     vk::DynamicLoader dl;

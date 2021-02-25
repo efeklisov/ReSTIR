@@ -1,7 +1,7 @@
 #include <hdvw/buffer.hpp>
 using namespace hd;
 
-Buffer_t::Buffer_t(const BufferCreateInfo& ci) {
+Buffer_t::Buffer_t(BufferCreateInfo ci) {
     _allocator = ci.allocator;
     _bufferSize = ci.size;
 

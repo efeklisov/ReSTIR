@@ -24,20 +24,20 @@ namespace hd {
             vk::Semaphore _semaphore;
 
         public:
-            static Semaphore conjure(const SemaphoreCreateInfo& ci) {
+            static Semaphore conjure(SemaphoreCreateInfo ci) {
                 return std::make_shared<Semaphore_t>(ci);
             }
 
-            Semaphore_t(const SemaphoreCreateInfo& ci);
+            Semaphore_t(SemaphoreCreateInfo ci);
 
-            inline const auto raw() {
+            inline auto raw() {
                 return _semaphore;
             }
 
             ~Semaphore_t();
     };
 
-    inline Semaphore conjure(const SemaphoreCreateInfo& ci) {
+    inline Semaphore conjure(SemaphoreCreateInfo ci) {
         return Semaphore_t::conjure(ci);
     }
 }

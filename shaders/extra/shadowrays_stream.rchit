@@ -65,11 +65,11 @@ float desPdf(Light light, Vertex v, vec3 lpos) {
     vec3  ldir = normalize(v.pos - lpos);
     float norm = length(v.pos - lpos);
 
-    return clamp(dot(ldir, light.normal) / (norm * norm), 0.001f, 0.999f);
+    return dot(ldir, light.normal) / (norm * norm);
 }
 
 float lgtPdf(Light light) {
-    return clamp(2.0f / length(cross(light.ab, light.ac)), 0.001f, 0.999f);
+    return 2.0f / length(cross(light.ab, light.ac));
 }
 
 void update(inout vec4 reservoir, float x_i, float a_i, float w_i) {

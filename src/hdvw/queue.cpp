@@ -4,7 +4,7 @@ using namespace hd;
 #include <vector>
 #include <stdexcept>
 
-Queue_t::Queue_t(const QueueCreateInfo& ci) {
+Queue_t::Queue_t(QueueCreateInfo ci) {
     type = ci.type;
 
     switch (ci.type) {

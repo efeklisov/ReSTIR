@@ -1,7 +1,7 @@
 #include <sbt.hpp>
 
 namespace hd {
-    SBT_t::SBT_t(const SBTCreateInfo& ci) {
+    SBT_t::SBT_t(SBTCreateInfo ci) {
         auto device = ci.device->raw();
 
         const uint32_t handleSize = ci.device->_rayTracingProperties.shaderGroupHandleSize;

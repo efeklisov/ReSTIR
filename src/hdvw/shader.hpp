@@ -26,20 +26,20 @@ namespace hd {
             std::vector<char> read(const char* filename);
 
         public:
-            static Shader conjure(const ShaderCreateInfo& ci) {
+            static Shader conjure(ShaderCreateInfo ci) {
                 return std::make_shared<Shader_t>(ci);
             }
 
-            Shader_t(const ShaderCreateInfo& ci);
+            Shader_t(ShaderCreateInfo ci);
 
-            inline const auto info() {
+            inline auto info() {
                 return _shaderStageInfo;
             }
 
             ~Shader_t();
     };
 
-    inline Shader conjure(const ShaderCreateInfo& ci) {
+    inline Shader conjure(ShaderCreateInfo ci) {
         return Shader_t::conjure(ci);
     }
 }

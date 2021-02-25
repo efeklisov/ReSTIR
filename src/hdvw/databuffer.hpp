@@ -36,11 +36,11 @@ namespace hd {
             vk::DeviceOrHostAddressKHR _address;
 
         public:
-            static DataBuffer<Data> conjure(const DataBufferCreateInfo<Data>& ci) {
+            static DataBuffer<Data> conjure(DataBufferCreateInfo<Data> ci) {
                 return std::make_shared<DataBuffer_t>(ci);
             }
 
-            DataBuffer_t(const DataBufferCreateInfo<Data>& ci) {
+            DataBuffer_t(DataBufferCreateInfo<Data> ci) {
                 auto device = ci.device->raw();
 
                 _entities = ci.data.size();
@@ -78,11 +78,11 @@ namespace hd {
                 _address = ci.device->getBufferDeviceAddress(bufferDeviceAI);
             }
 
-            inline const vk::DeviceSize size() {
+            inline vk::DeviceSize size() {
                 return _buffer->size();
             }
 
-            inline const uint64_t count() {
+            uint64_t count() {
                 return _entities;
             }
 
@@ -94,25 +94,25 @@ namespace hd {
                 _buffer->unmap();
             }
 
-            inline const vk::Buffer raw() {
+            inline vk::Buffer raw() {
                 return _buffer->raw();
             }
 
-            inline const auto writeInfo() {
+            inline auto writeInfo() {
                 return _buffer->writeInfo();
             }
 
-            inline const VmaAllocation memory() {
+            inline VmaAllocation memory() {
                 return _buffer->memory();
             }
 
-            inline const vk::DeviceOrHostAddressKHR address() {
+            vk::DeviceOrHostAddressKHR address() {
                 return _address;
             }
     };
 
     template<class T>
-    inline DataBuffer<T> conjure(const DataBufferCreateInfo<T>& ci) {
+    inline DataBuffer<T> conjure(DataBufferCreateInfo<T> ci) {
         return DataBuffer_t<T>::conjure(ci);
     }
 }

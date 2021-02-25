@@ -26,17 +26,17 @@ namespace hd {
             Allocator _allocator;
 
         public:
-            static Buffer conjure(const BufferCreateInfo& ci) {
+            static Buffer conjure(BufferCreateInfo ci) {
                 return std::make_shared<Buffer_t>(ci);
             }
 
-            Buffer_t(const BufferCreateInfo& ci);
+            Buffer_t(BufferCreateInfo ci);
 
-            inline const auto size() {
+            inline auto size() {
                 return _bufferSize;
             }
 
-            inline const auto memory() {
+            inline auto memory() {
                 return _bufferMemory;
             }
 
@@ -44,7 +44,7 @@ namespace hd {
 
             void unmap();
 
-            inline const auto raw() {
+            inline auto raw() {
                 return _buffer;
             }
 
@@ -60,7 +60,7 @@ namespace hd {
             ~Buffer_t();
     };
 
-    inline Buffer conjure(const BufferCreateInfo& ci) {
+    inline Buffer conjure(BufferCreateInfo ci) {
         return Buffer_t::conjure(ci);
     }
 }

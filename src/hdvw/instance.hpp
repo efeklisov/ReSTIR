@@ -26,7 +26,7 @@ namespace hd {
             vk::DebugUtilsMessengerEXT debugMessenger;
             bool evl = false;
 
-            bool checkValidationLayerSupport(const std::vector<const char*>* validationLayers);
+            bool checkValidationLayerSupport(std::vector<const char*>* validationLayers);
 
             static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData) {
                 std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
@@ -38,20 +38,20 @@ namespace hd {
             void populateDebugMessengerCreateInfo(vk::DebugUtilsMessengerCreateInfoEXT& createInfo);
 
         public:
-            static Instance conjure(const InstanceCreateInfo& ci) {
+            static Instance conjure(InstanceCreateInfo ci) {
                 return std::make_shared<Instance_t>(ci);
             }
 
-            Instance_t(const InstanceCreateInfo& ci);
+            Instance_t(InstanceCreateInfo ci);
 
-            inline const auto raw() {
+            inline auto raw() {
                 return _instance;
             }
 
             ~Instance_t();
     };
 
-    inline Instance conjure(const InstanceCreateInfo& ci) {
+    inline Instance conjure(InstanceCreateInfo ci) {
         return Instance_t::conjure(ci);
     }
 };

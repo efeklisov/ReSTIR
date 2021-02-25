@@ -31,11 +31,11 @@ namespace hd {
             vk::Device _device;
 
         public:
-            static CommandPool conjure(const CommandPoolCreateInfo& ci) {
+            static CommandPool conjure(CommandPoolCreateInfo ci) {
                 return std::make_shared<CommandPool_t>(ci);
             }
 
-            CommandPool_t(const CommandPoolCreateInfo& ci);
+            CommandPool_t(CommandPoolCreateInfo ci);
             
             std::vector<CommandBuffer> allocate(uint32_t count, vk::CommandBufferLevel level=vk::CommandBufferLevel::ePrimary);
 
@@ -43,14 +43,14 @@ namespace hd {
 
             void singleTimeEnd(CommandBuffer buffer, Queue queue);
 
-            inline const auto raw() {
+            inline auto raw() {
                 return _commandPool;
             }
 
             ~CommandPool_t();
     };
 
-    inline CommandPool conjure(const CommandPoolCreateInfo& ci) {
+    inline CommandPool conjure(CommandPoolCreateInfo ci) {
         return CommandPool_t::conjure(ci);
     }
 }

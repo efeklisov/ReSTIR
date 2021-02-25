@@ -31,11 +31,11 @@ namespace hd {
             Sampler _sampler;
 
         public:
-            static Texture conjure(const TextureCreateInfo& ci) {
+            static Texture conjure(TextureCreateInfo ci) {
                 return std::make_shared<Texture_t>(ci);
             }
 
-            Texture_t(const TextureCreateInfo& ci);
+            Texture_t(TextureCreateInfo ci);
 
             vk::DescriptorImageInfo writeInfo(vk::ImageLayout layout) {
                 vk::DescriptorImageInfo info{};
@@ -46,20 +46,20 @@ namespace hd {
                 return info;
             }
 
-            inline const vk::Sampler sampler() {
+            inline vk::Sampler sampler() {
                 return _sampler->raw();
             }
 
-            inline const vk::ImageView view() {
+            inline vk::ImageView view() {
                 return _imageView->raw();
             }
 
-            inline const vk::Image raw() {
+            inline vk::Image raw() {
                 return _image->raw();
             }
     };
 
-    inline Texture conjure(const TextureCreateInfo& ci) {
+    inline Texture conjure(TextureCreateInfo ci) {
         return Texture_t::conjure(ci);
     }
 }

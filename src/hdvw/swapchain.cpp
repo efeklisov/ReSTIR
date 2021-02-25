@@ -49,7 +49,7 @@ vk::Extent2D SwapChain_t::chooseSwapExtent(SwapChainSupportDetails& support, Win
     }
 }
 
-SwapChain_t::SwapChain_t(const SwapChainCreateInfo& ci) {
+SwapChain_t::SwapChain_t(SwapChainCreateInfo ci) {
     _device = ci.device->raw();
     auto indices = ci.device->indices();
     auto support = ci.device->swapChainSupport();
@@ -129,15 +129,15 @@ SwapChain_t::SwapChain_t(const SwapChainCreateInfo& ci) {
     }
 }
 
-const uint32_t SwapChain_t::length() {
+uint32_t SwapChain_t::length() {
     return _colorImages.size();
 }
 
-const Attachment SwapChain_t::colorAttachment(uint32_t index) {
+Attachment SwapChain_t::colorAttachment(uint32_t index) {
     return _colorImages.at(index);
 }
 
-const Attachment SwapChain_t::depthAttachment(uint32_t index) {
+Attachment SwapChain_t::depthAttachment(uint32_t index) {
     return _depthImages.at(index);
 }
 

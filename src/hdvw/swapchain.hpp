@@ -41,38 +41,38 @@ namespace hd {
             vk::Extent2D chooseSwapExtent(SwapChainSupportDetails& support, Window window);
 
         public:
-            static SwapChain conjure(const SwapChainCreateInfo& ci) {
+            static SwapChain conjure(SwapChainCreateInfo ci) {
                 return std::make_shared<SwapChain_t>(ci);
             }
 
-            SwapChain_t(const SwapChainCreateInfo& ci);
+            SwapChain_t(SwapChainCreateInfo ci);
 
-            inline const auto format() {
+            inline auto format() {
                 return _format;
             }
 
-            inline const auto depthFormat() {
+            inline auto depthFormat() {
                 return _depthFormat;
             }
 
-            const uint32_t length();
+            uint32_t length();
 
-            inline const auto extent() {
+            inline auto extent() {
                 return _extent;
             }
 
-            const Attachment colorAttachment(uint32_t index);
+            Attachment colorAttachment(uint32_t index);
 
-            const Attachment depthAttachment(uint32_t index);
+            Attachment depthAttachment(uint32_t index);
 
-            inline const auto raw() {
+            inline auto raw() {
                 return _swapChain;
             }
 
             ~SwapChain_t();
     };
 
-    inline SwapChain conjure(const SwapChainCreateInfo& ci) {
+    inline SwapChain conjure(SwapChainCreateInfo ci) {
         return SwapChain_t::conjure(ci);
     }
 }

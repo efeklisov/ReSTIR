@@ -13,7 +13,7 @@
 namespace hd {
     class Pipeline_t {
         public:
-            virtual const vk::Pipeline raw() = 0;
+            virtual vk::Pipeline raw() = 0;
     };
 
     typedef std::shared_ptr<Pipeline_t> Pipeline;
@@ -36,20 +36,20 @@ namespace hd {
             vk::Device _device;
 
         public:
-            static Pipeline conjure(const DefaultPipelineCreateInfo& ci) {
+            static Pipeline conjure(DefaultPipelineCreateInfo ci) {
                 return std::static_pointer_cast<Pipeline_t>(std::make_shared<DefaultPipeline_t>(ci));
             }
 
-            DefaultPipeline_t(const DefaultPipelineCreateInfo& ci);
+            DefaultPipeline_t(DefaultPipelineCreateInfo ci);
 
-            inline const vk::Pipeline raw() {
+            inline vk::Pipeline raw() {
                 return _pipeline;
             }
 
             ~DefaultPipeline_t();
     };
 
-    inline Pipeline conjure(const DefaultPipelineCreateInfo& ci) {
+    inline Pipeline conjure(DefaultPipelineCreateInfo ci) {
         return DefaultPipeline_t::conjure(ci);
     }
 
@@ -65,20 +65,20 @@ namespace hd {
             vk::Device _device;
 
         public:
-            static Pipeline conjure(const ComputePipelineCreateInfo& ci) {
+            static Pipeline conjure(ComputePipelineCreateInfo ci) {
                 return std::static_pointer_cast<Pipeline_t>(std::make_shared<ComputePipeline_t>(ci));
             }
 
-            ComputePipeline_t(const ComputePipelineCreateInfo& ci);
+            ComputePipeline_t(ComputePipelineCreateInfo ci);
 
-            inline const vk::Pipeline raw() {
+            inline vk::Pipeline raw() {
                 return _pipeline;
             }
 
             ~ComputePipeline_t();
     };
 
-    inline Pipeline conjure(const ComputePipelineCreateInfo& ci) {
+    inline Pipeline conjure(ComputePipelineCreateInfo ci) {
         return ComputePipeline_t::conjure(ci);
     }
 
@@ -97,24 +97,24 @@ namespace hd {
             vk::DeviceSize _groupCount;
 
         public:
-            static Pipeline conjure(const RaytraycingPipelineCreateInfo& ci) {
+            static Pipeline conjure(RaytraycingPipelineCreateInfo ci) {
                 return std::static_pointer_cast<Pipeline_t>(std::make_shared<RaytraycingPipeline_t>(ci));
             }
 
-            RaytraycingPipeline_t(const RaytraycingPipelineCreateInfo& ci);
+            RaytraycingPipeline_t(RaytraycingPipelineCreateInfo ci);
 
-            inline const auto getGroupCount() {
+            inline auto getGroupCount() {
                 return _groupCount;
             }
 
-            inline const vk::Pipeline raw() {
+            inline vk::Pipeline raw() {
                 return _pipeline;
             }
 
             ~RaytraycingPipeline_t();
     };
 
-    inline Pipeline conjure(const RaytraycingPipelineCreateInfo& ci) {
+    inline Pipeline conjure(RaytraycingPipelineCreateInfo ci) {
         return RaytraycingPipeline_t::conjure(ci);
     }
 }

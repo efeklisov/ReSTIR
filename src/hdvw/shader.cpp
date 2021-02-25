@@ -21,7 +21,7 @@ std::vector<char> Shader_t::read(const char* filename) {
     return buffer;
 }
 
-Shader_t::Shader_t(const ShaderCreateInfo& ci) {
+Shader_t::Shader_t(ShaderCreateInfo ci) {
     _device = ci.device->raw();
     auto code = read(ci.filename);
 

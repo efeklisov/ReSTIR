@@ -35,11 +35,11 @@ namespace hd {
             static uint32_t computeIndex;
 
         public:
-            static Queue conjure(const QueueCreateInfo& ci) {
+            static Queue conjure(QueueCreateInfo ci) {
                 return std::make_shared<Queue_t>(ci);
             }
 
-            Queue_t(const QueueCreateInfo& ci);
+            Queue_t(QueueCreateInfo ci);
 
             void waitIdle();
 
@@ -49,12 +49,12 @@ namespace hd {
 
             vk::Result present(vk::PresentInfoKHR& presentInfo);
 
-            inline const auto raw() {
+            inline auto raw() {
                 return _queue;
             }
     };
 
-    inline Queue conjure(const QueueCreateInfo& ci) {
+    inline Queue conjure(QueueCreateInfo ci) {
         return Queue_t::conjure(ci);
     }
 }

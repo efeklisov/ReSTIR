@@ -1,18 +1,27 @@
 #include <hdvw/descriptorset.hpp>
 using namespace hd;
 
-DescriptorSet_t::DescriptorSet_t(const DescriptorSetCreateInfo& ci) {
+DescriptorSet_t::DescriptorSet_t(DescriptorSetCreateInfo ci) {
     _device = ci.device;
     _set = ci.set;
 }
 
-vk::WriteDescriptorSet DescriptorSet_t::writeInfo(uint32_t binding, vk::DescriptorType type, uint32_t index, uint32_t count) {
-    vk::WriteDescriptorSet writeSet{};
-    writeSet.dstBinding = binding;
-    writeSet.dstArrayElement = index;
-    writeSet.descriptorType = type;
-    writeSet.descriptorCount = count;
+void DescriptorSet_t::update(UpdateDescriptorBufferInfo ci) {
+    auto writeSet = ci.writeSet;
+    auto bufferInfo = ci.bufferInfo;
+
+    writeSet.pBufferInfo = &bufferInfo;
     writeSet.dstSet = _set;
 
-    return writeSet;
-};
+    _device.updateDescriptorSets(writeSet, nullptr);
+}
+
+void DescriptorSet_t::update(UpdateDescriptorImageInfo ci) {
+    auto writeSet = ci.writeSet;
+    auto imageInfo = ci.imageInfo;
+
+    writeSet.pImageInfo = &imageInfo;
+    writeSet.dstSet = _set;
+
+    _device.updateDescriptorSets(writeSet, nullptr);
+}

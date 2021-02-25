@@ -13,6 +13,7 @@ namespace hd {
     struct DescriptorPoolCreateInfo {
         Device device;
         std::vector<std::pair<DescriptorLayout, uint32_t>> layouts;
+        uint32_t instances = 1;
     };
 
     class DescriptorPool_t;
@@ -23,23 +24,25 @@ namespace hd {
             vk::DescriptorPool _pool;
             vk::Device _device;
 
+            uint32_t _instances = 1;
+
         public:
-            static DescriptorPool conjure(const DescriptorPoolCreateInfo& ci) {
+            static DescriptorPool conjure(DescriptorPoolCreateInfo ci) {
                 return std::make_shared<DescriptorPool_t>(ci);
             }
 
-            DescriptorPool_t(const DescriptorPoolCreateInfo& ci);
+            DescriptorPool_t(DescriptorPoolCreateInfo ci);
 
             std::vector<DescriptorSet> allocate(uint32_t count, DescriptorLayout layout);
 
-            inline const auto raw() {
+            inline auto raw() {
                 return _pool;
             }
 
             ~DescriptorPool_t();
     };
 
-    inline DescriptorPool conjure(const DescriptorPoolCreateInfo& ci) {
+    inline DescriptorPool conjure(DescriptorPoolCreateInfo ci) {
         return DescriptorPool_t::conjure(ci);
     }
 }

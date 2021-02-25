@@ -1,7 +1,7 @@
 #include <hdvw/allocator.hpp>
 using namespace hd;
 
-Allocator_t::Allocator_t(const AllocatorCreateInfo& ci) {
+Allocator_t::Allocator_t(AllocatorCreateInfo ci) {
     VmaVulkanFunctions funcs;
     funcs.vkAllocateMemory = VULKAN_HPP_DEFAULT_DISPATCHER.vkAllocateMemory;
     funcs.vkBindBufferMemory = VULKAN_HPP_DEFAULT_DISPATCHER.vkBindBufferMemory;
