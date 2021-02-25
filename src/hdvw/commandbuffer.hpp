@@ -34,8 +34,7 @@ namespace hd {
     };
 
     struct TransitionImageLayoutInfo {
-        vk::Image image;
-        vk::ImageLayout srcLayout;
+        Image image;
         vk::ImageLayout dstLayout;
         vk::ImageSubresourceRange range;
     };
@@ -51,7 +50,6 @@ namespace hd {
     struct CopyBufferToImageInfo {
         Buffer buffer;
         Image image;
-        vk::ImageLayout layout;
     };
 
     class CommandBuffer_t {

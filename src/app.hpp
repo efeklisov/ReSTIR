@@ -940,15 +940,13 @@ class App {
                     );
 
             buffer->transitionImageLayout({
-                    swapChain->colorAttachment(i)->raw(),
-                    vk::ImageLayout::eUndefined,
+                    swapChain->colorAttachment(i)->imageRef(),
                     vk::ImageLayout::eTransferDstOptimal,
                     sRange,
                     });
 
             buffer->transitionImageLayout({
-                    vram.storage.frame.image->raw(),
-                    vk::ImageLayout::eGeneral,
+                    vram.storage.frame.image,
                     vk::ImageLayout::eTransferSrcOptimal,
                     sRange,
                     });
@@ -960,15 +958,13 @@ class App {
                     );
 
             buffer->transitionImageLayout({
-                    swapChain->colorAttachment(i)->raw(),
-                    vk::ImageLayout::eTransferDstOptimal,
+                    swapChain->colorAttachment(i)->imageRef(),
                     vk::ImageLayout::ePresentSrcKHR,
                     sRange,
                     });
 
             buffer->transitionImageLayout({
-                    vram.storage.frame.image->raw(),
-                    vk::ImageLayout::eTransferSrcOptimal,
+                    vram.storage.frame.image,
                     vk::ImageLayout::eGeneral,
                     sRange,
                     });
@@ -1001,8 +997,7 @@ class App {
             buffer->begin();
 
             buffer->transitionImageLayout({
-                    source->raw(),
-                    vk::ImageLayout::eGeneral,
+                    source,
                     vk::ImageLayout::eTransferSrcOptimal,
                     sRange,
                     });
@@ -1021,8 +1016,7 @@ class App {
                     );
 
             buffer->transitionImageLayout({
-                    source->raw(),
-                    vk::ImageLayout::eTransferSrcOptimal,
+                    source,
                     vk::ImageLayout::eGeneral,
                     sRange,
                     });
@@ -1055,8 +1049,7 @@ class App {
                 {
                     auto cmd = graphicsPool->singleTimeBegin();
                     cmd->transitionImageLayout({
-                            .image = img.image->raw(),
-                            .srcLayout = vk::ImageLayout::eUndefined,
+                            .image = img.image,
                             .dstLayout = vk::ImageLayout::eGeneral,
                             .range = img.image->range(),
                             });
@@ -1099,8 +1092,7 @@ class App {
             {
                 auto cmd = graphicsPool->singleTimeBegin();
                 cmd->transitionImageLayout({
-                        .image = ram.saveImage->raw(),
-                        .srcLayout = vk::ImageLayout::eUndefined,
+                        .image = ram.saveImage,
                         .dstLayout = vk::ImageLayout::eGeneral,
                         .range = ram.saveImage->range(),
                         });

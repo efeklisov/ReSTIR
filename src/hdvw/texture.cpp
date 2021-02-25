@@ -34,19 +34,16 @@ Texture_t::Texture_t(const TextureCreateInfo& ci) {
 
     auto buff = ci.commandPool->singleTimeBegin();
     buff->transitionImageLayout({
-            .image = _image->raw(),
-            .srcLayout = vk::ImageLayout::eUndefined,
+            .image = _image,
             .dstLayout = vk::ImageLayout::eTransferDstOptimal,
             .range = _image->range(),
             });
     buff->copy({
             .buffer = stagingBuffer,
             .image = _image,
-            .layout = vk::ImageLayout::eTransferDstOptimal,
             });
     buff->transitionImageLayout({
-            .image = _image->raw(),
-            .srcLayout = vk::ImageLayout::eTransferDstOptimal,
+            .image = _image,
             .dstLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
             .range = _image->range(),
             });

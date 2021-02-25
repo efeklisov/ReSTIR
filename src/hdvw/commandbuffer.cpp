@@ -21,83 +21,83 @@ void CommandBuffer_t::barrier(const BarrierCreateInfo& ci) {
 
 void CommandBuffer_t::transitionImageLayout(const TransitionImageLayoutInfo& ci) {
     vk::ImageMemoryBarrier barrier = {};
-    barrier.oldLayout = ci.srcLayout;
+    barrier.oldLayout = ci.image->layout();
     barrier.newLayout = ci.dstLayout;
     barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.image = ci.image;
+    barrier.image = ci.image->raw();
     barrier.subresourceRange = ci.range;
 
     vk::PipelineStageFlags sourceStage;
     vk::PipelineStageFlags destinationStage;
 
-    if (ci.srcLayout == vk::ImageLayout::eUndefined && ci.dstLayout == vk::ImageLayout::eTransferDstOptimal) {
+    if (barrier.oldLayout == vk::ImageLayout::eUndefined && barrier.newLayout == vk::ImageLayout::eTransferDstOptimal) {
         barrier.srcAccessMask = vk::AccessFlags{0};
         barrier.dstAccessMask = vk::AccessFlagBits::eTransferWrite;
 
         sourceStage = vk::PipelineStageFlagBits::eTopOfPipe;
         destinationStage = vk::PipelineStageFlagBits::eTransfer;
-    } else if (ci.srcLayout == vk::ImageLayout::eUndefined && ci.dstLayout == vk::ImageLayout::eGeneral) {
+    } else if (barrier.oldLayout == vk::ImageLayout::eUndefined && barrier.newLayout == vk::ImageLayout::eGeneral) {
         barrier.srcAccessMask = vk::AccessFlags{0};
         barrier.dstAccessMask = vk::AccessFlags{0};
 
         sourceStage = vk::PipelineStageFlagBits::eTopOfPipe;
         destinationStage = vk::PipelineStageFlagBits::eTopOfPipe;
-    } else if (ci.srcLayout == vk::ImageLayout::eGeneral && ci.dstLayout == vk::ImageLayout::eTransferSrcOptimal) {
+    } else if (barrier.oldLayout == vk::ImageLayout::eGeneral && barrier.newLayout == vk::ImageLayout::eTransferSrcOptimal) {
         barrier.srcAccessMask = vk::AccessFlags{0};
         barrier.dstAccessMask = vk::AccessFlagBits::eTransferWrite;
 
         sourceStage = vk::PipelineStageFlagBits::eTopOfPipe;
         destinationStage = vk::PipelineStageFlagBits::eTransfer;
-    } else if (ci.srcLayout == vk::ImageLayout::eTransferSrcOptimal && ci.dstLayout == vk::ImageLayout::eGeneral) {
+    } else if (barrier.oldLayout == vk::ImageLayout::eTransferSrcOptimal && barrier.newLayout == vk::ImageLayout::eGeneral) {
         barrier.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
         barrier.dstAccessMask = vk::AccessFlags{0};
 
         sourceStage = vk::PipelineStageFlagBits::eTransfer;
         destinationStage = vk::PipelineStageFlagBits::eTopOfPipe;
-    } else if (ci.srcLayout == vk::ImageLayout::eGeneral && ci.dstLayout == vk::ImageLayout::eTransferDstOptimal) {
+    } else if (barrier.oldLayout == vk::ImageLayout::eGeneral && barrier.newLayout == vk::ImageLayout::eTransferDstOptimal) {
         barrier.srcAccessMask = vk::AccessFlags{0};
         barrier.dstAccessMask = vk::AccessFlagBits::eTransferWrite;
 
         sourceStage = vk::PipelineStageFlagBits::eTopOfPipe;
         destinationStage = vk::PipelineStageFlagBits::eTransfer;
-    } else if (ci.srcLayout == vk::ImageLayout::eTransferDstOptimal && ci.dstLayout == vk::ImageLayout::eGeneral) {
+    } else if (barrier.oldLayout == vk::ImageLayout::eTransferDstOptimal && barrier.newLayout == vk::ImageLayout::eGeneral) {
         barrier.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
         barrier.dstAccessMask = vk::AccessFlags{0};
 
         sourceStage = vk::PipelineStageFlagBits::eTransfer;
         destinationStage = vk::PipelineStageFlagBits::eTopOfPipe;
-    } else if (ci.srcLayout == vk::ImageLayout::eTransferSrcOptimal && ci.dstLayout == vk::ImageLayout::eTransferDstOptimal) {
+    } else if (barrier.oldLayout == vk::ImageLayout::eTransferSrcOptimal && barrier.newLayout == vk::ImageLayout::eTransferDstOptimal) {
         barrier.dstAccessMask = vk::AccessFlagBits::eTransferWrite;
         barrier.srcAccessMask = vk::AccessFlagBits::eTransferRead;
 
         destinationStage = vk::PipelineStageFlagBits::eTransfer;
         sourceStage = vk::PipelineStageFlagBits::eTransfer;
-    } else if (ci.srcLayout == vk::ImageLayout::eTransferDstOptimal && ci.dstLayout == vk::ImageLayout::eTransferSrcOptimal) {
+    } else if (barrier.oldLayout == vk::ImageLayout::eTransferDstOptimal && barrier.newLayout == vk::ImageLayout::eTransferSrcOptimal) {
         barrier.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
         barrier.dstAccessMask = vk::AccessFlagBits::eTransferRead;
 
         sourceStage = vk::PipelineStageFlagBits::eTransfer;
         destinationStage = vk::PipelineStageFlagBits::eTransfer;
-    } else if (ci.srcLayout == vk::ImageLayout::eTransferDstOptimal && ci.dstLayout == vk::ImageLayout::eShaderReadOnlyOptimal) {
+    } else if (barrier.oldLayout == vk::ImageLayout::eTransferDstOptimal && barrier.newLayout == vk::ImageLayout::eShaderReadOnlyOptimal) {
         barrier.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
         barrier.dstAccessMask = vk::AccessFlagBits::eShaderRead;
 
         sourceStage = vk::PipelineStageFlagBits::eTransfer;
         destinationStage = vk::PipelineStageFlagBits::eFragmentShader;
-    } else if (ci.srcLayout == vk::ImageLayout::eTransferSrcOptimal && ci.dstLayout == vk::ImageLayout::ePresentSrcKHR) {
+    } else if (barrier.oldLayout == vk::ImageLayout::eTransferSrcOptimal && barrier.newLayout == vk::ImageLayout::ePresentSrcKHR) {
         barrier.srcAccessMask = vk::AccessFlagBits::eTransferRead;
         barrier.dstAccessMask = vk::AccessFlagBits::eMemoryRead;
 
         sourceStage = vk::PipelineStageFlagBits::eTransfer;
         destinationStage = vk::PipelineStageFlagBits::eTopOfPipe;
-    } else if (ci.srcLayout == vk::ImageLayout::ePresentSrcKHR && ci.dstLayout == vk::ImageLayout::eTransferSrcOptimal) {
+    } else if (barrier.oldLayout == vk::ImageLayout::ePresentSrcKHR && barrier.newLayout == vk::ImageLayout::eTransferSrcOptimal) {
         barrier.srcAccessMask = vk::AccessFlagBits::eMemoryRead;
         barrier.dstAccessMask = vk::AccessFlagBits::eTransferRead;
 
         sourceStage = vk::PipelineStageFlagBits::eTopOfPipe;
         destinationStage = vk::PipelineStageFlagBits::eTransfer;
-    } else if (ci.srcLayout == vk::ImageLayout::eTransferDstOptimal && ci.dstLayout == vk::ImageLayout::ePresentSrcKHR) {
+    } else if (barrier.oldLayout == vk::ImageLayout::eTransferDstOptimal && barrier.newLayout == vk::ImageLayout::ePresentSrcKHR) {
         barrier.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
         barrier.dstAccessMask = vk::AccessFlagBits::eMemoryRead;
 
@@ -108,6 +108,7 @@ void CommandBuffer_t::transitionImageLayout(const TransitionImageLayoutInfo& ci)
     }
 
     _buffer.pipelineBarrier(sourceStage, destinationStage, vk::DependencyFlags{0}, nullptr, nullptr, barrier);
+    ci.image->setLayout(ci.dstLayout);
 }
 
 void CommandBuffer_t::begin() {
@@ -158,7 +159,7 @@ void CommandBuffer_t::copy(const CopyBufferToImageInfo& ci) {
     region.imageOffset = vk::Offset3D{0, 0, 0};
     region.imageExtent = vk::Extent3D{ci.image->extent().width, ci.image->extent().height, 1};
 
-    _buffer.copyBufferToImage(ci.buffer->raw(), ci.image->raw(), ci.layout, region);
+    _buffer.copyBufferToImage(ci.buffer->raw(), ci.image->raw(), ci.image->layout(), region);
 }
 
 void CommandBuffer_t::beginRenderPass(const RenderPassBeginInfo& bi) {

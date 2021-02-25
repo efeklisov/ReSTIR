@@ -49,7 +49,9 @@ namespace hd {
                 return _layout;
             }
 
-            void setLayout(vk::ImageLayout layout);
+            inline const auto setLayout(vk::ImageLayout other) {
+                _layout = other;
+            }
 
             inline const auto range() {
                 return _range;

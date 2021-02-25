@@ -43,6 +43,10 @@ namespace hd {
                 return _imageHandle;
             }
 
+            inline const auto& imageRef() {
+                return _image;
+            }
+
             inline const auto view() {
                 return _view->raw();
             }
