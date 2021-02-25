@@ -42,7 +42,6 @@ Texture_t::Texture_t(const TextureCreateInfo& ci) {
     buff->copy({
             .buffer = stagingBuffer,
             .image = _image,
-            .layout = vk::ImageLayout::eTransferDstOptimal,
             });
     buff->transitionImageLayout({
             .image = _image->raw(),

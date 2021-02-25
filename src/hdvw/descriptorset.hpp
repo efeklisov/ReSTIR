@@ -38,7 +38,7 @@ namespace hd {
 
             DescriptorSet_t(const DescriptorSetCreateInfo& ci);
 
-            vk::WriteDescriptorSet writeInfo(uint32_t binding, vk::DescriptorType type, uint32_t index = 0, uint32_t count = 1);
+            vk::WriteDescriptorSet writeInfo(uint32_t binding, vk::DescriptorType type, uint32_t index = 0, uint32_t count = 0);
 
             inline const auto raw() {
                 return _set;

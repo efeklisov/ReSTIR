@@ -158,7 +158,7 @@ void CommandBuffer_t::copy(const CopyBufferToImageInfo& ci) {
     region.imageOffset = vk::Offset3D{0, 0, 0};
     region.imageExtent = vk::Extent3D{ci.image->extent().width, ci.image->extent().height, 1};
 
-    _buffer.copyBufferToImage(ci.buffer->raw(), ci.image->raw(), ci.layout, region);
+    _buffer.copyBufferToImage(ci.buffer->raw(), ci.image->raw(), ci.image->layout(), region);
 }
 
 void CommandBuffer_t::beginRenderPass(const RenderPassBeginInfo& bi) {
