@@ -51,6 +51,7 @@ namespace hd {
     struct CopyBufferToImageInfo {
         Buffer buffer;
         Image image;
+        vk::ImageLayout layout;
     };
 
     class CommandBuffer_t {
