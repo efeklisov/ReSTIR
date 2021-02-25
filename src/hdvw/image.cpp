@@ -32,6 +32,10 @@ Image_t::Image_t(const ImageCreateInfo& ci) {
     _imageMemory = result.allocation;
 }
 
+void Image_t::setLayout(vk::ImageLayout layout) {
+    _layout = layout;
+}
+
 Image_t::~Image_t() {
     _allocator->destroy(_image, _imageMemory);
 }
