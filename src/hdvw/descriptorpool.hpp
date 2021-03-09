@@ -27,11 +27,11 @@ namespace hd {
             uint32_t _instances = 1;
 
         public:
-            static DescriptorPool conjure(DescriptorPoolCreateInfo ci) {
+            static DescriptorPool conjure(DescriptorPoolCreateInfo const & ci) {
                 return std::make_shared<DescriptorPool_t>(ci);
             }
 
-            DescriptorPool_t(DescriptorPoolCreateInfo ci);
+            DescriptorPool_t(DescriptorPoolCreateInfo const & ci);
 
             std::vector<DescriptorSet> allocate(uint32_t count, DescriptorLayout layout);
 
@@ -42,7 +42,7 @@ namespace hd {
             ~DescriptorPool_t();
     };
 
-    inline DescriptorPool conjure(DescriptorPoolCreateInfo ci) {
+    inline DescriptorPool conjure(DescriptorPoolCreateInfo const & ci) {
         return DescriptorPool_t::conjure(ci);
     }
 }

@@ -76,7 +76,7 @@ namespace hd {
         public:
             std::vector<Mesh> meshes;
 
-            static Model conjure(ModelCreateInfo ci) {
+            static Model conjure(ModelCreateInfo const & ci) {
                 return std::make_shared<Model_t>(ci);
             }
 
@@ -84,10 +84,10 @@ namespace hd {
 
             static LightPadInfo generateLightPad(Light light);
 
-            Model_t(ModelCreateInfo ci);
+            Model_t(ModelCreateInfo const & ci);
     };
 
-    inline Model conjure(ModelCreateInfo ci) {
+    inline Model conjure(ModelCreateInfo const & ci) {
         return Model_t::conjure(ci);
     }
 }

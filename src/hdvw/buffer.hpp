@@ -26,11 +26,11 @@ namespace hd {
             Allocator _allocator;
 
         public:
-            static Buffer conjure(BufferCreateInfo ci) {
+            static Buffer conjure(BufferCreateInfo const & ci) {
                 return std::make_shared<Buffer_t>(ci);
             }
 
-            Buffer_t(BufferCreateInfo ci);
+            Buffer_t(BufferCreateInfo const & ci);
 
             inline auto size() {
                 return _bufferSize;
@@ -60,7 +60,7 @@ namespace hd {
             ~Buffer_t();
     };
 
-    inline Buffer conjure(BufferCreateInfo ci) {
+    inline Buffer conjure(BufferCreateInfo const & ci) {
         return Buffer_t::conjure(ci);
     }
 }

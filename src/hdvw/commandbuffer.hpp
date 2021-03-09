@@ -65,11 +65,11 @@ namespace hd {
             vk::Device _device;
 
         public:
-            static CommandBuffer conjure(CommandBufferCreateInfo ci) {
+            static CommandBuffer conjure(CommandBufferCreateInfo const & ci) {
                 return std::make_shared<CommandBuffer_t>(ci);
             }
 
-            CommandBuffer_t(CommandBufferCreateInfo ci);
+            CommandBuffer_t(CommandBufferCreateInfo const & ci);
 
             void barrier(BarrierCreateInfo ci);
 
@@ -100,7 +100,7 @@ namespace hd {
             ~CommandBuffer_t();
     };
 
-    inline CommandBuffer conjure(CommandBufferCreateInfo ci) {
+    inline CommandBuffer conjure(CommandBufferCreateInfo const & ci) {
         return CommandBuffer_t::conjure(ci);
     }
 }

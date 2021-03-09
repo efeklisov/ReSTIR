@@ -1,7 +1,7 @@
 #include <hdvw/descriptorlayout.hpp>
 using namespace hd;
 
-DescriptorLayout_t::DescriptorLayout_t(DescriptorLayoutCreateInfo ci) {
+DescriptorLayout_t::DescriptorLayout_t(DescriptorLayoutCreateInfo const & ci) {
     _device = ci.device->raw();
 
     for (auto & binding: ci.bindings) {

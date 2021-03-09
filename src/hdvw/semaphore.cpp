@@ -1,7 +1,7 @@
 #include <hdvw/semaphore.hpp>
 using namespace hd;
 
-Semaphore_t::Semaphore_t(SemaphoreCreateInfo ci) {
+Semaphore_t::Semaphore_t(SemaphoreCreateInfo const & ci) {
     _device = ci.device->raw();
 
     vk::SemaphoreCreateInfo sci = {};

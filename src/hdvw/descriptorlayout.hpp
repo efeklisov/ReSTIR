@@ -25,11 +25,11 @@ namespace hd {
             std::map<vk::DescriptorType, uint32_t> _types;
 
         public:
-            static DescriptorLayout conjure(DescriptorLayoutCreateInfo ci) {
+            static DescriptorLayout conjure(DescriptorLayoutCreateInfo const & ci) {
                 return std::make_shared<DescriptorLayout_t>(ci);
             }
 
-            DescriptorLayout_t(DescriptorLayoutCreateInfo ci);
+            DescriptorLayout_t(DescriptorLayoutCreateInfo const & ci);
 
             inline auto types() {
                 return _types;
@@ -42,7 +42,7 @@ namespace hd {
             ~DescriptorLayout_t();
     };
 
-    inline DescriptorLayout conjure(DescriptorLayoutCreateInfo ci) {
+    inline DescriptorLayout conjure(DescriptorLayoutCreateInfo const & ci) {
         return DescriptorLayout_t::conjure(ci);
     }
 }

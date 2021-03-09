@@ -24,11 +24,11 @@ namespace hd {
             vk::Device _device;
 
         public:
-            static Framebuffer conjure(FramebufferCreateInfo ci) {
+            static Framebuffer conjure(FramebufferCreateInfo const & ci) {
                 return std::make_shared<Framebuffer_t>(ci);
             }
 
-            Framebuffer_t(FramebufferCreateInfo ci);
+            Framebuffer_t(FramebufferCreateInfo const & ci);
 
             inline auto raw() {
                 return _framebuffer;
@@ -37,7 +37,7 @@ namespace hd {
             ~Framebuffer_t();
     };
 
-    inline Framebuffer conjure(FramebufferCreateInfo ci) {
+    inline Framebuffer conjure(FramebufferCreateInfo const & ci) {
         return Framebuffer_t::conjure(ci);
     }
 }

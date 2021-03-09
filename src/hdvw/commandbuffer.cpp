@@ -1,7 +1,7 @@
 #include <hdvw/commandbuffer.hpp>
 using namespace hd;
 
-CommandBuffer_t::CommandBuffer_t(CommandBufferCreateInfo ci) {
+CommandBuffer_t::CommandBuffer_t(CommandBufferCreateInfo const & ci) {
     _device = ci.device;
     _buffer = ci.commandBuffer;
     _cmdpool = ci.commandPool;

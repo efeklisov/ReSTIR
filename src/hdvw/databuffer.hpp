@@ -36,11 +36,11 @@ namespace hd {
             vk::DeviceOrHostAddressKHR _address;
 
         public:
-            static DataBuffer<Data> conjure(DataBufferCreateInfo<Data> ci) {
+            static DataBuffer<Data> conjure(DataBufferCreateInfo<Data> const & ci) {
                 return std::make_shared<DataBuffer_t>(ci);
             }
 
-            DataBuffer_t(DataBufferCreateInfo<Data> ci) {
+            DataBuffer_t(DataBufferCreateInfo<Data> const & ci) {
                 auto device = ci.device->raw();
 
                 _entities = ci.data.size();
@@ -112,7 +112,7 @@ namespace hd {
     };
 
     template<class T>
-    inline DataBuffer<T> conjure(DataBufferCreateInfo<T> ci) {
+    inline DataBuffer<T> conjure(DataBufferCreateInfo<T> const & ci) {
         return DataBuffer_t<T>::conjure(ci);
     }
 }

@@ -5,7 +5,7 @@ using namespace hd;
 
 #include <stdexcept>
 
-Surface_t::Surface_t(SurfaceCreateInfo ci) {
+Surface_t::Surface_t(SurfaceCreateInfo const & ci) {
     _instance = ci.instance->raw();
     auto psurface = static_cast<VkSurfaceKHR>(_surface);
 

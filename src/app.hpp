@@ -512,7 +512,6 @@ class App {
                     },
                     });
 
-
             vk::PushConstantRange pushWindowSize{};
             pushWindowSize.stageFlags = vk::ShaderStageFlagBits::eCompute;
             pushWindowSize.offset = 0;

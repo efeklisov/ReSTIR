@@ -1,7 +1,7 @@
 #include <hdvw/pipeline.hpp>
 using namespace hd;
 
-DefaultPipeline_t::DefaultPipeline_t(DefaultPipelineCreateInfo ci) {
+DefaultPipeline_t::DefaultPipeline_t(DefaultPipelineCreateInfo const & ci) {
     _device = ci.device->raw();
 
     auto bindingDescription = Vertex::getBindingDescription();
@@ -128,7 +128,7 @@ DefaultPipeline_t::~DefaultPipeline_t() {
     _device.destroy(_pipeline);
 }
 
-ComputePipeline_t::ComputePipeline_t(ComputePipelineCreateInfo ci) {
+ComputePipeline_t::ComputePipeline_t(ComputePipelineCreateInfo const & ci) {
     _device = ci.device->raw();
 
     vk::ComputePipelineCreateInfo pipelineInfo{};
@@ -146,7 +146,7 @@ ComputePipeline_t::~ComputePipeline_t() {
     _device.destroy(_pipeline);
 }
 
-RaytraycingPipeline_t::RaytraycingPipeline_t(RaytraycingPipelineCreateInfo ci) {
+RaytraycingPipeline_t::RaytraycingPipeline_t(RaytraycingPipelineCreateInfo const & ci) {
     _device = ci.device->raw();
 
     vk::RayTracingPipelineCreateInfoKHR pipelineInfo{};

@@ -32,11 +32,11 @@ namespace hd {
             ReturnBuffer memory;
 
         public:
-            static TLAS conjure(TLASCreateInfo ci) {
+            static TLAS conjure(TLASCreateInfo const & ci) {
                 return std::make_shared<TLAS_t>(ci);
             }
 
-            TLAS_t(TLASCreateInfo ci);
+            TLAS_t(TLASCreateInfo const & ci);
 
             inline auto raw() {
                 return _aStruct;
@@ -56,7 +56,7 @@ namespace hd {
             ~TLAS_t();
     };
 
-    inline TLAS conjure(TLASCreateInfo ci) {
+    inline TLAS conjure(TLASCreateInfo const & ci) {
         return TLAS_t::conjure(ci);
     }
 }

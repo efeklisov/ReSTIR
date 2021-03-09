@@ -41,11 +41,11 @@ namespace hd {
             vk::Extent2D chooseSwapExtent(SwapChainSupportDetails& support, Window window);
 
         public:
-            static SwapChain conjure(SwapChainCreateInfo ci) {
+            static SwapChain conjure(SwapChainCreateInfo const & ci) {
                 return std::make_shared<SwapChain_t>(ci);
             }
 
-            SwapChain_t(SwapChainCreateInfo ci);
+            SwapChain_t(SwapChainCreateInfo const & ci);
 
             inline auto format() {
                 return _format;
@@ -72,7 +72,7 @@ namespace hd {
             ~SwapChain_t();
     };
 
-    inline SwapChain conjure(SwapChainCreateInfo ci) {
+    inline SwapChain conjure(SwapChainCreateInfo const & ci) {
         return SwapChain_t::conjure(ci);
     }
 }

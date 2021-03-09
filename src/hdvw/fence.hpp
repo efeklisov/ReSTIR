@@ -26,11 +26,11 @@ namespace hd {
             vk::Fence _fence;
 
         public:
-            static Fence conjure(FenceCreateInfo ci) {
+            static Fence conjure(FenceCreateInfo const & ci) {
                 return std::make_shared<Fence_t>(ci);
             }
 
-            Fence_t(FenceCreateInfo ci);
+            Fence_t(FenceCreateInfo const & ci);
 
             void wait();
 
@@ -43,7 +43,7 @@ namespace hd {
             ~Fence_t();
     };
 
-    inline Fence conjure(FenceCreateInfo ci) {
+    inline Fence conjure(FenceCreateInfo const & ci) {
         return Fence_t::conjure(ci);
     }
 }

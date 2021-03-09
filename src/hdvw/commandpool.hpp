@@ -31,11 +31,11 @@ namespace hd {
             vk::Device _device;
 
         public:
-            static CommandPool conjure(CommandPoolCreateInfo ci) {
+            static CommandPool conjure(CommandPoolCreateInfo const & ci) {
                 return std::make_shared<CommandPool_t>(ci);
             }
 
-            CommandPool_t(CommandPoolCreateInfo ci);
+            CommandPool_t(CommandPoolCreateInfo const & ci);
             
             std::vector<CommandBuffer> allocate(uint32_t count, vk::CommandBufferLevel level=vk::CommandBufferLevel::ePrimary);
 
@@ -50,7 +50,7 @@ namespace hd {
             ~CommandPool_t();
     };
 
-    inline CommandPool conjure(CommandPoolCreateInfo ci) {
+    inline CommandPool conjure(CommandPoolCreateInfo const & ci) {
         return CommandPool_t::conjure(ci);
     }
 }

@@ -36,11 +36,11 @@ namespace hd {
             vk::Device _device;
 
         public:
-            static Pipeline conjure(DefaultPipelineCreateInfo ci) {
+            static Pipeline conjure(DefaultPipelineCreateInfo const & ci) {
                 return std::static_pointer_cast<Pipeline_t>(std::make_shared<DefaultPipeline_t>(ci));
             }
 
-            DefaultPipeline_t(DefaultPipelineCreateInfo ci);
+            DefaultPipeline_t(DefaultPipelineCreateInfo const & ci);
 
             inline vk::Pipeline raw() {
                 return _pipeline;
@@ -49,7 +49,7 @@ namespace hd {
             ~DefaultPipeline_t();
     };
 
-    inline Pipeline conjure(DefaultPipelineCreateInfo ci) {
+    inline Pipeline conjure(DefaultPipelineCreateInfo const & ci) {
         return DefaultPipeline_t::conjure(ci);
     }
 
@@ -65,11 +65,11 @@ namespace hd {
             vk::Device _device;
 
         public:
-            static Pipeline conjure(ComputePipelineCreateInfo ci) {
+            static Pipeline conjure(ComputePipelineCreateInfo const & ci) {
                 return std::static_pointer_cast<Pipeline_t>(std::make_shared<ComputePipeline_t>(ci));
             }
 
-            ComputePipeline_t(ComputePipelineCreateInfo ci);
+            ComputePipeline_t(ComputePipelineCreateInfo const & ci);
 
             inline vk::Pipeline raw() {
                 return _pipeline;
@@ -78,7 +78,7 @@ namespace hd {
             ~ComputePipeline_t();
     };
 
-    inline Pipeline conjure(ComputePipelineCreateInfo ci) {
+    inline Pipeline conjure(ComputePipelineCreateInfo const & ci) {
         return ComputePipeline_t::conjure(ci);
     }
 
@@ -97,11 +97,11 @@ namespace hd {
             vk::DeviceSize _groupCount;
 
         public:
-            static Pipeline conjure(RaytraycingPipelineCreateInfo ci) {
+            static Pipeline conjure(RaytraycingPipelineCreateInfo const & ci) {
                 return std::static_pointer_cast<Pipeline_t>(std::make_shared<RaytraycingPipeline_t>(ci));
             }
 
-            RaytraycingPipeline_t(RaytraycingPipelineCreateInfo ci);
+            RaytraycingPipeline_t(RaytraycingPipelineCreateInfo const & ci);
 
             inline auto getGroupCount() {
                 return _groupCount;
@@ -114,7 +114,7 @@ namespace hd {
             ~RaytraycingPipeline_t();
     };
 
-    inline Pipeline conjure(RaytraycingPipelineCreateInfo ci) {
+    inline Pipeline conjure(RaytraycingPipelineCreateInfo const & ci) {
         return RaytraycingPipeline_t::conjure(ci);
     }
 }

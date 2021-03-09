@@ -53,7 +53,7 @@ namespace hd {
 
             QueueFamilyIndices findQueueFamilies(vk::PhysicalDevice physicalDevice, Surface surface);
 
-            bool checkExtensionSupport(vk::PhysicalDevice physicalDevice, std::vector<const char*>& extensions);
+            bool checkExtensionSupport(vk::PhysicalDevice physicalDevice, const std::vector<const char*>& extensions);
 
             SwapChainSupportDetails querySwapChainSupport(vk::PhysicalDevice physicalDevice, Surface surface);
 
@@ -62,7 +62,7 @@ namespace hd {
                 QueueFamilyIndices indices;
             };
 
-            DeviceSuitableReturn deviceSuitable(vk::PhysicalDevice physicalDevice, DeviceCreateInfo& ci);
+            DeviceSuitableReturn deviceSuitable(vk::PhysicalDevice physicalDevice, const DeviceCreateInfo& ci);
 
         public:
             vk::PhysicalDeviceRayTracingPipelinePropertiesKHR _rayTracingProperties{};
@@ -70,11 +70,11 @@ namespace hd {
             vk::PhysicalDeviceAccelerationStructurePropertiesKHR _aStructProperties{};
             vk::PhysicalDeviceAccelerationStructureFeaturesKHR _aStructFeatures{};
 
-            static Device conjure(DeviceCreateInfo ci) {
+            static Device conjure(DeviceCreateInfo const & ci) {
                 return std::make_shared<Device_t>(ci);
             }
 
-            Device_t(DeviceCreateInfo ci);
+            Device_t(DeviceCreateInfo const & ci);
 
             void waitIdle();
 
@@ -103,7 +103,7 @@ namespace hd {
             ~Device_t();
     };
 
-    inline Device conjure(DeviceCreateInfo ci) {
+    inline Device conjure(DeviceCreateInfo const & ci) {
         return Device_t::conjure(ci);
     }
 }

@@ -32,11 +32,11 @@ namespace hd {
             vk::Device _device;
 
         public:
-            static DescriptorSet conjure(DescriptorSetCreateInfo ci) {
+            static DescriptorSet conjure(DescriptorSetCreateInfo const & ci) {
                 return std::make_shared<DescriptorSet_t>(ci);
             }
 
-            DescriptorSet_t(DescriptorSetCreateInfo ci);
+            DescriptorSet_t(DescriptorSetCreateInfo const & ci);
 
             void update(UpdateDescriptorBufferInfo ci);
 
@@ -47,7 +47,7 @@ namespace hd {
             }
     };
 
-    inline DescriptorSet conjure(DescriptorSetCreateInfo ci) {
+    inline DescriptorSet conjure(DescriptorSetCreateInfo const & ci) {
         return DescriptorSet_t::conjure(ci);
     }
 }

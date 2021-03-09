@@ -35,11 +35,11 @@ namespace hd {
             Allocator _allocator;
 
         public:
-            static Image conjure(ImageCreateInfo ci) {
+            static Image conjure(ImageCreateInfo const & ci) {
                 return std::make_shared<Image_t>(ci);
             }
 
-            Image_t(ImageCreateInfo ci);
+            Image_t(ImageCreateInfo const & ci);
 
             inline auto extent() {
                 return _imageSize;
@@ -70,7 +70,7 @@ namespace hd {
             ~Image_t();
     };
 
-    inline Image conjure(ImageCreateInfo ci) {
+    inline Image conjure(ImageCreateInfo const & ci) {
         return Image_t::conjure(ci);
     }
 
@@ -91,11 +91,11 @@ namespace hd {
             vk::Device _device;
 
         public:
-            static ImageView conjure(ImageViewCreateInfo ci) {
+            static ImageView conjure(ImageViewCreateInfo const & ci) {
                 return std::make_shared<ImageView_t>(ci);
             }
 
-            ImageView_t(ImageViewCreateInfo ci);
+            ImageView_t(ImageViewCreateInfo const & ci);
 
             inline auto raw() {
                 return _view;
@@ -112,7 +112,7 @@ namespace hd {
             ~ImageView_t();
     };
 
-    inline ImageView conjure(ImageViewCreateInfo ci) {
+    inline ImageView conjure(ImageViewCreateInfo const & ci) {
         return ImageView_t::conjure(ci);
     }
 
@@ -130,11 +130,11 @@ namespace hd {
             vk::Device _device;
 
         public:
-            static Sampler conjure(SamplerCreateInfo ci) {
+            static Sampler conjure(SamplerCreateInfo const & ci) {
                 return std::make_shared<Sampler_t>(ci);
             }
 
-            Sampler_t(SamplerCreateInfo ci);
+            Sampler_t(SamplerCreateInfo const & ci);
 
             inline auto raw() {
                 return _sampler;
@@ -143,7 +143,7 @@ namespace hd {
             ~Sampler_t();
     };
 
-    inline Sampler conjure(SamplerCreateInfo ci) {
+    inline Sampler conjure(SamplerCreateInfo const & ci) {
         return Sampler_t::conjure(ci);
     }
 }

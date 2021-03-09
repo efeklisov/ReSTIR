@@ -24,11 +24,11 @@ namespace hd {
             vk::Semaphore _semaphore;
 
         public:
-            static Semaphore conjure(SemaphoreCreateInfo ci) {
+            static Semaphore conjure(SemaphoreCreateInfo const & ci) {
                 return std::make_shared<Semaphore_t>(ci);
             }
 
-            Semaphore_t(SemaphoreCreateInfo ci);
+            Semaphore_t(SemaphoreCreateInfo const & ci);
 
             inline auto raw() {
                 return _semaphore;
@@ -37,7 +37,7 @@ namespace hd {
             ~Semaphore_t();
     };
 
-    inline Semaphore conjure(SemaphoreCreateInfo ci) {
+    inline Semaphore conjure(SemaphoreCreateInfo const & ci) {
         return Semaphore_t::conjure(ci);
     }
 }

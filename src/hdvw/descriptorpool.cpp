@@ -1,7 +1,7 @@
 #include <hdvw/descriptorpool.hpp>
 using namespace hd;
 
-DescriptorPool_t::DescriptorPool_t(DescriptorPoolCreateInfo ci) {
+DescriptorPool_t::DescriptorPool_t(DescriptorPoolCreateInfo const & ci) {
     _device = ci.device->raw();
     _instances = ci.instances;
 

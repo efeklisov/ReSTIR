@@ -1,7 +1,7 @@
 #include <tlas.hpp>
 
 namespace hd {
-    TLAS_t::TLAS_t(TLASCreateInfo ci) {
+    TLAS_t::TLAS_t(TLASCreateInfo const & ci) {
          _device = ci.device->raw();
          _allocator = ci.allocator;
 

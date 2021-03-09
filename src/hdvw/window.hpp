@@ -26,11 +26,11 @@ namespace hd {
             bool evl;
 
         public:
-            static Window conjure(WindowCreateInfo ci) {
+            static Window conjure(WindowCreateInfo const & ci) {
                 return std::make_shared<Window_t>(ci);
             }
 
-            Window_t(WindowCreateInfo ci);
+            Window_t(WindowCreateInfo const & ci);
 
             bool shouldClose();
 
@@ -47,7 +47,7 @@ namespace hd {
             ~Window_t();
     };
 
-    inline Window conjure(WindowCreateInfo ci) {
+    inline Window conjure(WindowCreateInfo const & ci) {
         return Window_t::conjure(ci);
     }
 }

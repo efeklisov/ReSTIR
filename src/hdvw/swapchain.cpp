@@ -49,7 +49,7 @@ vk::Extent2D SwapChain_t::chooseSwapExtent(SwapChainSupportDetails& support, Win
     }
 }
 
-SwapChain_t::SwapChain_t(SwapChainCreateInfo ci) {
+SwapChain_t::SwapChain_t(SwapChainCreateInfo const & ci) {
     _device = ci.device->raw();
     auto indices = ci.device->indices();
     auto support = ci.device->swapChainSupport();

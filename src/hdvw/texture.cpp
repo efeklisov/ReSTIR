@@ -1,7 +1,7 @@
 #include <hdvw/texture.hpp>
 using namespace hd;
 
-Texture_t::Texture_t(TextureCreateInfo ci) {
+Texture_t::Texture_t(TextureCreateInfo const & ci) {
     int texWidth, texHeight, texChannels;
     stbi_uc* pixels = stbi_load(ci.filename, &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
     VkDeviceSize imageSize = texWidth * texHeight * 4;

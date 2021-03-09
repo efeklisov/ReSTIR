@@ -29,11 +29,11 @@ namespace hd {
             vk::Device _device;
 
         public:
-            static RenderPass conjure(SwapChainRenderPassCreateInfo ci) {
+            static RenderPass conjure(SwapChainRenderPassCreateInfo const & ci) {
                 return std::static_pointer_cast<RenderPass_t>(std::make_shared<SwapChainRenderPass_t>(ci));
             }
 
-            SwapChainRenderPass_t(SwapChainRenderPassCreateInfo ci);
+            SwapChainRenderPass_t(SwapChainRenderPassCreateInfo const & ci);
 
             inline vk::RenderPass raw() {
                 return _renderPass;
@@ -42,7 +42,7 @@ namespace hd {
             ~SwapChainRenderPass_t();
     };
 
-    inline RenderPass conjure(SwapChainRenderPassCreateInfo ci) {
+    inline RenderPass conjure(SwapChainRenderPassCreateInfo const & ci) {
         return SwapChainRenderPass_t::conjure(ci);
     }
 }

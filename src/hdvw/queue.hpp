@@ -35,11 +35,11 @@ namespace hd {
             static uint32_t computeIndex;
 
         public:
-            static Queue conjure(QueueCreateInfo ci) {
+            static Queue conjure(QueueCreateInfo const & ci) {
                 return std::make_shared<Queue_t>(ci);
             }
 
-            Queue_t(QueueCreateInfo ci);
+            Queue_t(QueueCreateInfo const & ci);
 
             void waitIdle();
 
@@ -54,7 +54,7 @@ namespace hd {
             }
     };
 
-    inline Queue conjure(QueueCreateInfo ci) {
+    inline Queue conjure(QueueCreateInfo const & ci) {
         return Queue_t::conjure(ci);
     }
 }

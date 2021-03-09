@@ -1,7 +1,7 @@
 #include <hdvw/attachment.hpp>
 using namespace hd;
 
-Attachment_t::Attachment_t(AttachmentCreateInfo ci) {
+Attachment_t::Attachment_t(AttachmentCreateInfo const & ci) {
     _device = ci.device->raw();
 
     if (ci.allocator != nullptr) {

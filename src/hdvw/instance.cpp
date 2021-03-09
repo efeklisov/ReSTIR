@@ -5,10 +5,10 @@ VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
 
 #include <cstdlib>
 
-bool Instance_t::checkValidationLayerSupport(std::vector<const char*>* validationLayers) {
+bool Instance_t::checkValidationLayerSupport(const std::vector<const char*>& validationLayers) {
     std::vector<vk::LayerProperties> availableLayers = vk::enumerateInstanceLayerProperties();
 
-    for (auto layerName : *validationLayers) {
+    for (auto layerName : validationLayers) {
         bool layerFound = false;
 
         for (const auto& layerProperties : availableLayers) {
@@ -35,14 +35,14 @@ void Instance_t::populateDebugMessengerCreateInfo(vk::DebugUtilsMessengerCreateI
     createInfo.pfnUserCallback = debugCallback;
 }
 
-Instance_t::Instance_t(InstanceCreateInfo ci) {
+Instance_t::Instance_t(InstanceCreateInfo const & ci) {
     evl = ci.validationLayers.size() > 0;
 
     vk::DynamicLoader dl;
     PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr = dl.getProcAddress<PFN_vkGetInstanceProcAddr>("vkGetInstanceProcAddr");
     VULKAN_HPP_DEFAULT_DISPATCHER.init(vkGetInstanceProcAddr);
 
-    if (evl && !checkValidationLayerSupport(&ci.validationLayers)) {
+    if (evl && !checkValidationLayerSupport(ci.validationLayers)) {
         throw std::runtime_error("validation layers requested, but not available!");
     }
 

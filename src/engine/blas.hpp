@@ -31,11 +31,11 @@ namespace hd {
             ReturnBuffer memory;
 
         public:
-            static BLAS conjure(BLASCreateInfo ci) {
+            static BLAS conjure(BLASCreateInfo const & ci) {
                 return std::make_shared<BLAS_t>(ci);
             }
 
-            BLAS_t(BLASCreateInfo ci);
+            BLAS_t(BLASCreateInfo const & ci);
 
             inline auto raw() {
                 return _aStruct;
@@ -48,7 +48,7 @@ namespace hd {
             ~BLAS_t();
     };
 
-    inline BLAS conjure(BLASCreateInfo ci) {
+    inline BLAS conjure(BLASCreateInfo const & ci) {
         return BLAS_t::conjure(ci);
     }
 }

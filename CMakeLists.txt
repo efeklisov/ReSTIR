@@ -55,7 +55,7 @@ add_executable(neo
     src/external/stb_image_write.cpp
 )
 
-target_link_libraries(neo glfw glm assimp -ldl)
+target_link_libraries(neo glfw ${GLM_LIBRARIES} assimp -ldl)
 
 file(COPY models/ DESTINATION models/)
 file(COPY textures/ DESTINATION textures/)

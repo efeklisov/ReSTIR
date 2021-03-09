@@ -33,11 +33,11 @@ namespace hd {
             vk::Device _device;
 
         public:
-            static Attachment conjure(AttachmentCreateInfo ci) {
+            static Attachment conjure(AttachmentCreateInfo const & ci) {
                 return std::make_shared<Attachment_t>(ci);
             }
 
-            Attachment_t(AttachmentCreateInfo ci);
+            Attachment_t(AttachmentCreateInfo const & ci);
 
             inline auto raw() {
                 return _imageHandle;
@@ -48,7 +48,7 @@ namespace hd {
             }
     };
 
-    inline Attachment conjure(AttachmentCreateInfo ci) {
+    inline Attachment conjure(AttachmentCreateInfo const & ci) {
         return Attachment_t::conjure(ci);
     }
 }

@@ -1,7 +1,7 @@
 #include <hdvw/descriptorset.hpp>
 using namespace hd;
 
-DescriptorSet_t::DescriptorSet_t(DescriptorSetCreateInfo ci) {
+DescriptorSet_t::DescriptorSet_t(DescriptorSetCreateInfo const & ci) {
     _device = ci.device;
     _set = ci.set;
 }

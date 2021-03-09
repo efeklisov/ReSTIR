@@ -38,11 +38,11 @@ namespace hd {
             VmaAllocator _allocator;
 
         public:
-            static Allocator conjure(AllocatorCreateInfo ci) {
+            static Allocator conjure(AllocatorCreateInfo const & ci) {
                 return std::make_shared<Allocator_t>(ci);
             }
 
-            Allocator_t(AllocatorCreateInfo ci);
+            Allocator_t(AllocatorCreateInfo const & ci);
 
             ReturnImage create(vk::ImageCreateInfo ici, VmaMemoryUsage flag);
 
@@ -67,7 +67,7 @@ namespace hd {
             ~Allocator_t();
     };
 
-    inline Allocator conjure(AllocatorCreateInfo ci) {
+    inline Allocator conjure(AllocatorCreateInfo const & ci) {
         return Allocator_t::conjure(ci);
     }
 }
