@@ -11,13 +11,13 @@ An implementation of [spatiotemporal reservoir resampling](https://research.nvid
 # Build Prerequisites
 - Clang version with C++20 support (tested with 11.1.0)
 - GNU Parallel and glslangValidator in PATH for shader compilation
-- GLFW3 and GLM installed on your system
 
 # Build
 
 ```
 mkdir build
 cd build
+conan install ..
 cmake .. 
 # cmake -DCMAKE_BUILD_TYPE=Debug .. # for debug (duh...)
 make
@@ -36,7 +36,7 @@ Just double-click the executable
 - Backspace/Enter - levitate downwards/upwards
 
 # CLI options
-Default is `./neo -m ReSTIR -N 1 -M 4`
+Default is `./bin/neo -m ReSTIR -N 1 -M 4`
 
 -  -h,--help                   Print this help message and exit
 -  -N,--N UINT                 Number of samples per pixel
@@ -53,6 +53,6 @@ Default is `./neo -m ReSTIR -N 1 -M 4`
 `shaders/extra` folder contains several other shaders for debug and comparison. You may want to test the perfomance and quality with other explicit sampling strategies:
 
 ```
-$ time ./neo -m ReSTIR -N 1 -M 4 -ocf 16
-$ time ./neo -m extra/shadowrays_const -N 8 -ocf 16
+$ time ./bin/neo -m ReSTIR -N 1 -M 4 -ocf 16
+$ time ./bin/neo -m extra/shadowrays_const -N 8 -ocf 16
 ```

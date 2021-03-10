@@ -2,7 +2,7 @@
 
 #include <fstream>
 
-#include <external/rapidjson/document.h>
+#include <rapidjson/document.h>
 
 namespace hd {
     Mesh Model_t::processMesh(aiMesh *mesh, const aiScene *scene) {

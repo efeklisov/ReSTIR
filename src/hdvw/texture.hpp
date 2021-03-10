@@ -1,7 +1,7 @@
 #pragma once
 
 #include <vulkan/vulkan.hpp>
-#include <external/stb_image.h>
+#include <stb_image.h>
 
 #include <hdvw/commandpool.hpp>
 #include <hdvw/queue.hpp>

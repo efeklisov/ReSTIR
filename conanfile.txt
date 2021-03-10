@@ -1,0 +1,11 @@
+[requires]
+glm/0.9.9.8
+glfw/3.3.3
+assimp/5.0.1
+rapidjson/cci.20200410
+stb/20200203
+cli11/1.9.1
+vulkan-headers/1.2.170.0
+
+[generators]
+cmake

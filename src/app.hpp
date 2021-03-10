@@ -5,7 +5,7 @@
 #include <vulkan/vulkan.hpp>
 #include <glm/glm.hpp>
 
-#include <external/vk_mem_alloc.h>
+#include <vk_mem_alloc.h>
 
 #include <iostream>
 #include <sstream>

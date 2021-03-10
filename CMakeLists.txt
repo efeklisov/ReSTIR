@@ -13,10 +13,9 @@ else()
     message("Building in release mode")
 endif()
 
-find_package(glfw3 3.3 REQUIRED)
-find_package(glm REQUIRED)
-find_package(Vulkan REQUIRED)
-find_package(Assimp REQUIRED)
+set(CONAN_SYSTEM_INCLUDES ON)
+include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
+conan_basic_setup()
 
 include_directories(src src/hdvw src/external src/engine)
 
@@ -52,10 +51,9 @@ add_executable(neo
     src/engine/saveimg.cpp
     src/external/vk_mem_alloc.cpp
     src/external/stb_image.cpp
-    src/external/stb_image_write.cpp
 )
 
-target_link_libraries(neo glfw ${GLM_LIBRARIES} assimp -ldl)
+target_link_libraries(neo ${CONAN_LIBS} -ldl)
 
 file(COPY models/ DESTINATION models/)
 file(COPY textures/ DESTINATION textures/)
