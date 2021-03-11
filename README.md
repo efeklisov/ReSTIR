@@ -1,5 +1,6 @@
 # ReSTIR
-An implementation of [spatiotemporal reservoir resampling](https://research.nvidia.com/publication/2020-07_Spatiotemporal-reservoir-resampling) algorithm with c++/Vulkan.
+An implementation of [spatiotemporal reservoir resampling](https://research.nvidia.com/publication/2020-07_Spatiotemporal-reservoir-resampling) 
+algorithm with c++/Vulkan.
 
 ![demo](demo.png)
 
@@ -12,18 +13,46 @@ An implementation of [spatiotemporal reservoir resampling](https://research.nvid
 - Clang version with C++20 support (tested with 11.1.0)
 - GNU Parallel and glslangValidator in PATH for shader compilation
 
-# Build
+# Build on adequate systems
+
+Note: GCC built Conan dependencies work fine
 
 ```
 mkdir build
 cd build
-conan install ..
+conan install .. # --build=missing
 cmake .. 
 # cmake -DCMAKE_BUILD_TYPE=Debug .. # for debug (duh...)
 make
 
+# ../slow_recompile_shaders.sh
+# or
 # ../recompile_shaders.sh # to build shaders if CMake didn't for some reason
 ```
+
+# Build on Windows
+
+Firstly you need Visual Studio BuildTools with Clang Tools installed. 
+There is no way to supress warnings from Conan dependencies, so prepare to get bamboozled. 
+You may also opt into building these with `compiler.toolset=ClangCL` set in profile settings
+and `set(CONAN_DISABLE_CHECK_COMPILER OFF)` in `CMakeLists.txt`, but the result is the same.
+
+```
+mkdir build
+cd build
+conan install .. # --build=missing
+cmake .. -G "Visual Studio 16" -T"clangcl" 
+cmake —build . —config Release
+```
+
+You may install Vulkan SDK for convenient access to glslangValidator. 
+To build shaders open `build` directory with `git-bash` and
+
+```
+../slow_recompile_shaders.sh
+```
+
+Do NOT run the scripts by double-clicking or Windows native prompts.
 
 # Run
 
@@ -50,7 +79,8 @@ Default is `./bin/neo -m ReSTIR -N 1 -M 4`
 -  -i,--immediate              Unlock FPS
 
 # EXTRA
-`shaders/extra` folder contains several other shaders for debug and comparison. You may want to test the perfomance and quality with other explicit sampling strategies:
+`shaders/extra` folder contains several other shaders for debug and comparison. 
+You may want to test the perfomance and quality with other explicit sampling strategies:
 
 ```
 $ time ./bin/neo -m ReSTIR -N 1 -M 4 -ocf 16

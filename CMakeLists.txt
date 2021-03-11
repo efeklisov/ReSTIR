@@ -13,7 +13,14 @@ else()
     message("Building in release mode")
 endif()
 
-set(CONAN_SYSTEM_INCLUDES ON)
+if(MSVC)
+    set(CONAN_DISABLE_CHECK_COMPILER ON)
+endif(MSVC)
+
+if(UNIX)
+    set(CONAN_SYSTEM_INCLUDES ON)
+endif(UNIX)
+
 include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
 conan_basic_setup()
 
@@ -58,6 +65,14 @@ target_link_libraries(neo ${CONAN_LIBS} -ldl)
 file(COPY models/ DESTINATION models/)
 file(COPY textures/ DESTINATION textures/)
 
-execute_process(
-    COMMAND sh "../recompile_shaders.sh" 
-)
+if(UNIX)
+    execute_process(
+        COMMAND sh "../recompile_shaders.sh" 
+    )
+endif(UNIX)
+
+if(MSVC)
+    execute_process(
+        COMMAND sh "../slow_recompile_shaders.sh" 
+    )
+endif(MSVC)
