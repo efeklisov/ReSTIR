@@ -24,7 +24,7 @@ struct Material
 struct hitPayload
 {
     vec3 color;
-    uint seed;
+    uvec4 seed;
     uint depth;
     bool diffuse;
     float prevPDF;

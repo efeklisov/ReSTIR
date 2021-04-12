@@ -54,6 +54,7 @@ namespace hd {
     struct ModelCreateInfo {
         std::string_view filename;
         std::function<Texture(const char*)> textureConjure;
+        bool multiply = false;
     };
 
     struct LightPadInfo {
@@ -69,7 +70,7 @@ namespace hd {
         private:
             std::function<Texture(const char*)> textureConjure;
 
-            void processNode(aiNode *node, const aiScene *scene);
+            void processNode(aiNode *node, const aiScene *scene, bool multiply);
 
             Mesh processMesh(aiMesh *mesh, const aiScene *scene);
 
@@ -80,7 +81,7 @@ namespace hd {
                 return std::make_shared<Model_t>(ci);
             }
 
-            static std::vector<Light> parseLights(std::string_view filename);
+            static std::vector<Light> parseLights(std::string_view filename, bool multiply = false);
 
             static LightPadInfo generateLightPad(Light light);
 

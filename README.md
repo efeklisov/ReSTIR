@@ -65,7 +65,7 @@ Just double-click the executable
 - Backspace/Enter - levitate downwards/upwards
 
 # CLI options
-Default is `./bin/neo -m ReSTIR -N 1 -M 4`
+Default is `./neo -m ReSTIR -N 1 -M 4`
 
 -  -h,--help                   Print this help message and exit
 -  -N,--N UINT                 Number of samples per pixel
@@ -83,6 +83,6 @@ Default is `./bin/neo -m ReSTIR -N 1 -M 4`
 You may want to test the perfomance and quality with other explicit sampling strategies:
 
 ```
-$ time ./bin/neo -m ReSTIR -N 1 -M 4 -ocf 16
-$ time ./bin/neo -m extra/shadowrays_const -N 8 -ocf 16
+$ time ./neo -m ReSTIR -N 1 -M 4 -ocf 16
+$ time ./neo -m extra/shadowrays_const -N 8 -ocf 16
 ```

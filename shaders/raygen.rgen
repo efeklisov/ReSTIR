@@ -10,6 +10,7 @@ layout(binding = 2, set = 0) uniform CameraProperties
 {
 	mat4 viewInverse;
 	mat4 projInverse;
+        uvec4 state;
 	uint frameIndex;
 	uint N;
 } cam;
@@ -21,7 +22,9 @@ layout(location = 0) rayPayloadEXT hitPayload hitValue;
 void main() 
 {
     // Raygen
-    uint seed = initialSeed(gl_LaunchIDEXT.x * (cam.frameIndex + 1), gl_LaunchIDEXT.y * (cam.frameIndex + 1), 16);
+    /* uint seed = initialSeed(gl_LaunchIDEXT.x + (cam.frameIndex + 1) * gl_LaunchSizeEXT.x, gl_LaunchIDEXT.y + (cam.frameIndex + 1) * gl_LaunchSizeEXT.y, 32); */
+    uint idx = gl_LaunchIDEXT.y * gl_LaunchSizeEXT.x + gl_LaunchIDEXT.x;
+    uvec4 seed = cam.state + idx;
 
     hitValue.color = vec3(0.0f);
     vec4 origin = cam.viewInverse * vec4(0, 0, 0, 1);

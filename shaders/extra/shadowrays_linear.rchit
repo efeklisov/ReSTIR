@@ -19,9 +19,11 @@ layout(binding = 7, set = 0, scalar) buffer Lights { Light l[]; } lights;
 layout(binding = 8, set = 0) uniform Sizes {
     uint meshesSize;    
     uint lightsSize;
+    uint M;
+    uint C;
 } sizes;
 
-#define MAX_LIGHTS 80
+#define MAX_LIGHTS 1000
 
 float shadowBias = 0.0001f;
 float pi = 3.14159265f;
@@ -63,7 +65,7 @@ Vertex barycentricVertex(Vertex v0, Vertex v1, Vertex v2) {
 }
 
 float lgtPdf(Light light) {
-    return 2.0f / length(cross(light.ab, light.ac));
+    return clamp(1.0f / length(cross(light.ab, light.ac)), 0.001f, 0.999f);
 }
 
 vec3 lightSample(Light light, float eps) {
@@ -139,7 +141,7 @@ void main()
     float norm = length(v.pos - lpos);
     float shadow = shadowRay(v.pos, shadowBias, -ldir, norm);
     
-    float C = 2.0f;
+    float C = (sizes.C == 1) ? 100.0f : 1.0f;
     float L_e = light.intensity;
     vec3 BRDF = texColor / pi; // Lambert
 

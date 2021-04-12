@@ -20,6 +20,7 @@ layout(binding = 8, set = 0) uniform Sizes {
     uint meshesSize;    
     uint lightsSize;
     uint M;
+    uint C;
 } sizes;
 
 #define MAX_SAMPLES 64
@@ -75,11 +76,11 @@ float desPdf(Light light, Vertex v, vec3 lpos, vec3 texColor) {
     vec3  ldir = normalize(v.pos - lpos);
     float norm = length(v.pos - lpos);
 
-    return /*BRDF* L_e * */ dot(ldir, light.normal) / (norm * norm);
+    return clamp(dot(ldir, light.normal) / (norm * norm), 0.001f, 0.999f);
 }
 
 float lgtPdf(Light light) {
-    return 2.0f / length(cross(light.ab, light.ac));
+    return clamp(1.0f / length(cross(light.ab, light.ac)), 0.001f, 0.999f);
 }
 
 void main()
@@ -158,7 +159,7 @@ void main()
     float norm = length(v.pos - lpos);
     float shadow = shadowRay(v.pos, shadowBias, -ldir, norm);
     
-    float C = 2.0f;
+    float C = (sizes.C == 1) ? 50.0f : 1.0f;
     float L_e = light.intensity;
     vec3 BRDF = texColor / pi; // Lambert
 

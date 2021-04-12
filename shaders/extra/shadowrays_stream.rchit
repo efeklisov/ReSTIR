@@ -20,6 +20,7 @@ layout(binding = 8, set = 0) uniform Sizes {
     uint meshesSize;    
     uint lightsSize;
     uint M;
+    uint C;
 } sizes;
 layout(binding = 9, set = 0, rgba8) uniform image2D reservoirs;
 
@@ -69,7 +70,7 @@ float desPdf(Light light, Vertex v, vec3 lpos) {
 }
 
 float lgtPdf(Light light) {
-    return 2.0f / length(cross(light.ab, light.ac));
+    return 1.0f / length(cross(light.ab, light.ac));
 }
 
 void update(inout vec4 reservoir, float x_i, float a_i, float w_i) {
@@ -155,7 +156,7 @@ void main()
     float norm = length(v.pos - lpos);
     float shadow = shadowRay(v.pos, shadowBias, -ldir, norm);
     
-    float C = 2.0f;
+    float C = (sizes.C == 1) ? 75.0f : 1.0f;
     float L_e = light.intensity;
     vec3 BRDF = texColor / pi; // Lambert
 

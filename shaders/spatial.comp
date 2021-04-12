@@ -13,6 +13,7 @@ layout (local_size_x = WORKGROUP_SIZE, local_size_y = WORKGROUP_SIZE, local_size
 layout(binding = 0, set = 0, rgba8) uniform image2D image;
 layout(binding = 1, set = 0, rgba32f) uniform image2D present;
 layout(binding = 2, set = 0) uniform UniFrames {
+    uvec4 state;
     uint lightsSize;
     uint frame;    
     vec3 cameraPos;
@@ -27,26 +28,48 @@ layout(push_constant) uniform params_t
 {
     uint width;
     uint height;
+    uint C;
 } params;
 
-uint initialSeed(uint frst, uint scnd, uint iterations)
+uint TausStep(uint z, int S1, int S2, int S3, uint M)
 {
-  uint wght = 0;
-
-  for (uint n = 0; n < iterations; n++)
-  {
-    wght += 0x9e3779b9;
-    frst += ((scnd << 4) + 0xa341316c) ^ (scnd + wght) ^ ((scnd >> 5) + 0xc8013ea4);
-    scnd += ((frst << 4) + 0xad90777d) ^ (frst + wght) ^ ((frst >> 5) + 0x7e95761e);
-  }
-  return frst;
+    uint b = (((z << S1) ^ z) >> S2);
+    return (((z & M) << S3) ^ b);    
 }
 
-float nextRand(inout uint seed)
+uint LCGStep(uint z, uint A, uint C)
 {
-  seed = (1664525u * seed + 1013904223u);
-  return float(seed & 0x00FFFFFF) / float(0x01000000);
+    return (A * z + C);    
 }
+
+float nextRand(inout uvec4 state)
+{
+    state.x = TausStep(state.x, 13, 19, 12, 4294967294);
+    state.y = TausStep(state.y, 2, 25, 4, 4294967288);
+    state.z = TausStep(state.z, 3, 11, 17, 4294967280);
+    state.w = LCGStep(state.w, 1664525, 1013904223);
+
+    return 2.3283064365387e-10 * (state.x ^ state.y ^ state.z ^ state.w);
+}
+
+/* uint initialSeed(uint frst, uint scnd, uint iterations) */
+/* { */
+/*   uint wght = 0; */
+
+/*   for (uint n = 0; n < iterations; n++) */
+/*   { */
+/*     wght += 0x9e3779b9; */
+/*     frst += ((scnd << 4) + 0xa341316c) ^ (scnd + wght) ^ ((scnd >> 5) + 0xc8013ea4); */
+/*     scnd += ((frst << 4) + 0xad90777d) ^ (frst + wght) ^ ((frst >> 5) + 0x7e95761e); */
+/*   } */
+/*   return frst; */
+/* } */
+
+/* float nextRand(inout uint seed) */
+/* { */
+/*   seed = (1664525u * seed + 1013904223u); */
+/*   return float(seed & 0x00FFFFFF) / float(0x01000000); */
+/* } */
 
 #define SPATIAL_ITERS 2
 #define SPATIAL_NEIGHBORS 5
@@ -58,8 +81,9 @@ reservoir load(vec2 UV) {
 }
 
 void save(vec2 UV, reservoir r) {
-    vec4 data = vec4(r.X, r.Y, r.M, r.W);
-	imageStore(past, ivec2(UV), data);
+    vec4 data = clamp(vec4(r.X, r.Y, r.M, r.W), 0.0f, 1.0f);
+    data.z = r.M;
+    imageStore(past, ivec2(UV), data);
 }
 
 vec3 lightSample(Light light, float eps1, float eps2) {
@@ -72,7 +96,7 @@ float desPdf(Light light, vec3 vpos, vec3 lpos) {
     vec3  ldir = normalize(vpos - lpos);
     float norm = length(vpos - lpos);
 
-    return clamp(dot(ldir, light.normal) / (norm * norm), 0.001f, 0.999f);
+    return dot(ldir, light.normal) / max(norm * norm, 0.001f);
 }
 
 float calcPdf(vec3 vpos, float eps1, float eps2) {
@@ -83,7 +107,7 @@ float calcPdf(vec3 vpos, float eps1, float eps2) {
     return desPdf(light, vpos, lpos);
 }
 
-void update(inout reservoir r, float x_i, float a_i, float w_i, inout uint seed) {
+void update(inout reservoir r, float x_i, float a_i, float w_i, inout uvec4 seed) {
     r.Wsum += w_i; // Wsum
     r.M += 1.0f; // M
 
@@ -93,17 +117,17 @@ void update(inout reservoir r, float x_i, float a_i, float w_i, inout uint seed)
     }
 }
 
-reservoir combine(vec3 vpos, reservoir r1, in reservoir Q[SPATIAL_NEIGHBORS], inout uint seed) {
+reservoir combine(vec3 vpos, reservoir r1, in reservoir Q[SPATIAL_NEIGHBORS], inout uvec4 seed) {
     reservoir s = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
 
-    update(s, r1.X, r1.Y, r1.W * calcPdf(vpos, r1.X, r1.Y) * r1.M, seed);
+    update(s, r1.X, r1.Y, max(r1.W * calcPdf(vpos, r1.X, r1.Y) * r1.M, 0.0001f), seed);
 
     float M = 0.0f;
     for (uint i = 0; i < SPATIAL_NEIGHBORS; i++) {
         if (length(vec4(Q[i].X, Q[i].Y, Q[i].M, Q[i].W)) < 0.01f)
             continue;
 
-        update(s, Q[i].X, Q[i].Y, Q[i].W * calcPdf(vpos, Q[i].X, Q[i].Y) * Q[i].M, seed);
+        update(s, Q[i].X, Q[i].Y, max(Q[i].W * calcPdf(vpos, Q[i].X, Q[i].Y) * Q[i].M, 0.0001f), seed);
 
         M += Q[i].M;
     }
@@ -112,13 +136,13 @@ reservoir combine(vec3 vpos, reservoir r1, in reservoir Q[SPATIAL_NEIGHBORS], in
         return r1;
 
     s.M = r1.M + M;
-    s.W = s.Wsum / calcPdf(vpos, s.X, s.Y) / s.M;
+    s.W = max(s.Wsum / calcPdf(vpos, s.X, s.Y) / s.M, 0.0001f);
     return s;
 }
 
 void main()
 {
-	const ivec2 absPos = ivec2(gl_GlobalInvocationID.xy);
+    const ivec2 absPos = ivec2(gl_GlobalInvocationID.xy);
     if(absPos.x >= params.width || absPos.y >= params.height)
         return;
 
@@ -128,29 +152,37 @@ void main()
         return;
     }
     vec3 vpos = imageLoad(vertexPositions, absPos).xyz;
+    float vpos_len = length(vpos - sizes.cameraPos);
+
     vec3 vnorm = imageLoad(vertexNormals, absPos).xyz;
     vec3 vmat = imageLoad(vertexMaterials, absPos).xyz;
 
-    uint seed = initialSeed(absPos.x * (sizes.frame + 2), absPos.y * (sizes.frame + 2), 8);
+    uint idx = absPos.y * params.width + absPos.x;
+    uvec4 seed = sizes.state + idx;
+    /* uint seed = initialSeed(absPos.x + (sizes.frame + 2) * params.width, absPos.y + (sizes.frame + 2) * params.height, 30); */
 
     reservoir Q[SPATIAL_NEIGHBORS];
 
+    vec3 qpos;
     reservoir erase = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
-	for (uint j = 0; j < SPATIAL_ITERS; j++) {
+    /* reservoir erase = { 0.0f, 0.0f, 0.0f, 4.0f, 0.0f }; */
+    for (uint j = 0; j < SPATIAL_ITERS; j++) {
         uint i = 0;
         while (i < SPATIAL_NEIGHBORS) {
             uint x = absPos.x + uint(nextRand(seed) * 29) - 15;
-            if (x >= 0)
+            if (x >= absPos.x)
                 x++;
             uint y = absPos.y + uint(nextRand(seed) * 29) - 15;
-            if (y >= 0)
+            if (y >= absPos.y)
                 y++;
 
             Q[i] = load(vec2(x, y));
             i++;
 
-            /* if (Q[i].M < 0.01f) */ 
+            /* if (Q[i].M < 0.01f) { */
+            /*     Q[i - 1] = erase; */
             /*     continue; */
+            /* } */
 
             vec3 qnorm = imageLoad(vertexNormals, ivec2(x, y)).xyz;
             if (dot(vnorm, qnorm) < 0.9063) {
@@ -158,9 +190,11 @@ void main()
                 continue;
             }
 
-            vec3 qpos = imageLoad(vertexPositions, ivec2(x, y)).xyz;
-            if (length(vpos - sizes.cameraPos) * 1.1 < length(qpos - sizes.cameraPos))
+            qpos = imageLoad(vertexPositions, ivec2(x, y)).xyz;
+            if ((vpos_len * 1.1) < length(qpos - sizes.cameraPos)) {
                 Q[i - 1] = erase;
+                continue;
+            }
         }
         r = combine(vpos, r, Q, seed);
     }
@@ -175,11 +209,14 @@ void main()
     vec3 ldir = normalize(vpos - lpos);
     float norm = length(vpos - lpos);
     
-    float C = 2.0f;
+    float C = (params.C == 1) ? 120.0f : 1.0f;
+    /* float C = (params.C == 1) ? 50.0f : 1.0f; */
     float L_e = light.intensity;
     vec3 BRDF = vmat / pi; // Lambert
 
-    vec3 explicitColor = C * BRDF * L_e * dot(-ldir, vnorm) * dot(ldir, light.normal) / (norm * norm);
+    vec3 explicitColor = C * BRDF * L_e * dot(-ldir, vnorm) * dot(ldir, light.normal) / max(norm * norm, 0.001f);
+    /* vec3 explicitColor = C * max(1.2f * log(vpos_len), 4.0f) * BRDF * L_e * dot(-ldir, vnorm) * dot(ldir, light.normal) / max(norm * norm, 0.001f); */
 
-	imageStore(image, ivec2(gl_GlobalInvocationID.xy), vec4(explicitColor * r.W, 1.0f));
+    /* imageStore(image, ivec2(gl_GlobalInvocationID.xy), vec4(clamp(vec3(vpos_len) / 20.0f, 0.0f, 1.0f), 1.0f)); */
+    imageStore(image, ivec2(gl_GlobalInvocationID.xy), vec4(clamp(explicitColor * r.W, 0.0f, 1.0f), 1.0f));
 }

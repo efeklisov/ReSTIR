@@ -19,6 +19,8 @@ layout(binding = 7, set = 0, scalar) buffer Lights { Light l[]; } lights;
 layout(binding = 8, set = 0) uniform Sizes {
     uint meshesSize;    
     uint lightsSize;
+    uint M;
+    uint C;
 } sizes;
 
 float shadowBias = 0.0001f;
@@ -123,7 +125,7 @@ void main()
     float norm = length(v.pos - lpos);
     float shadow = shadowRay(v.pos, shadowBias, -ldir, norm);
     
-    float C = 2.0f;
+    float C = (sizes.C == 1) ? 100.0f : 2.0f;
     float L_e = light.intensity;
     vec3 BRDF = texColor / pi; // Lambert
 

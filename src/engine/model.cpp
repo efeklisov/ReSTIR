@@ -113,17 +113,31 @@ namespace hd {
         return ret;
     }
 
-    void Model_t::processNode(aiNode *node, const aiScene *scene) {
-        meshes.reserve(meshes.size() + node->mNumMeshes);
+    void Model_t::processNode(aiNode *node, const aiScene *scene, bool multiply) {
+        meshes.reserve(meshes.size() + 2 * node->mNumMeshes);
         for(uint32_t i = 0; i < node->mNumMeshes; i++)
         {
             aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
             meshes.push_back(processMesh(mesh, scene));
+
+            if (!multiply)
+                continue;
+
+            auto res = meshes.back();
+            for (uint32_t i = 1; i < 100; i++) {
+                auto mesh_dup = res;
+
+                uint32_t x = i / 10, y = i % 10;
+                for (uint32_t idx = 0; idx < mesh->mNumVertices; idx++) {
+                    mesh_dup.vertices[idx].pos += glm::vec3(18.1f * x, 0.0f, -18.1f * y);
+                }
+                meshes.push_back(mesh_dup);
+            }
         }
 
         for(unsigned int i = 0; i < node->mNumChildren; i++)
         {
-            processNode(node->mChildren[i], scene);
+            processNode(node->mChildren[i], scene, multiply);
         }
     }
 
@@ -139,10 +153,10 @@ namespace hd {
         }
 
         textureConjure = ci.textureConjure;
-        processNode(scene->mRootNode, scene);
+        processNode(scene->mRootNode, scene, ci.multiply);
     }
 
-    std::vector<Light> Model_t::parseLights(std::string_view filename) {
+    std::vector<Light> Model_t::parseLights(std::string_view filename, bool multiply) {
         std::vector<Light> lights;
 
         std::ifstream file(filename.data(), std::ios_base::in);
@@ -217,6 +231,20 @@ namespace hd {
                     .dims = dims,
                     .rotate = rotate,
                     });
+
+            if (!multiply)
+                continue;
+
+            for (uint32_t i = 1; i < 100; i++) {
+                uint32_t x = i / 10, y = i % 10;
+                lights.push_back({
+                        .pos = pos + glm::vec3(18.1f * x, 0.0f, -18.1f * y),
+                        .color = color,
+                        .intensity = intensity,
+                        .dims = dims,
+                        .rotate = rotate,
+                        });
+            }
         }
 
         return lights;

@@ -21,6 +21,7 @@ int main(int argc, char* argv[]) {
     parser.add_option("-t,--tolerance", params.tolerance, "Number of frames before capturing");
     parser.add_option("-M,--M", params.M, "M value for RIS");
     parser.add_flag("-i,--immediate", params.immediate, "Unlock FPS");
+    parser.add_flag("--100", params.multiply, "Multiply geometry");
 
     try {
         parser.parse(argc, argv);

@@ -84,11 +84,11 @@ float desPdf(Light light, Vertex v, vec3 lpos) {
     vec3  ldir = normalize(v.pos - lpos);
     float norm = length(v.pos - lpos);
 
-    return clamp(dot(ldir, light.normal) / (norm * norm), 0.001f, 0.999f);
+    return dot(ldir, light.normal) / max(norm * norm, 0.001f);
 }
 
 float lgtPdf(Light light) {
-    return clamp(2.0f / length(cross(light.ab, light.ac)), 0.001f, 0.999f);
+    return 1.0f / max(length(cross(light.ab, light.ac)), 0.001f);
 }
 
 float calcPdf(Vertex v, float eps1, float eps2) {
@@ -112,14 +112,14 @@ void update(inout reservoir r, float x_i, float a_i, float w_i) {
 reservoir combine(Vertex v, reservoir r1, reservoir r2) {
     reservoir s = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
 
-    if (length(vec4(r2.X, r2.Y, r2.M, r2.W)) < 0.01f)
+    if (length(vec4(r2.X, r2.Y, r2.M, r2.W)) < 0.001f)
         return r1;
 
-    update(s, r1.X, r1.Y, r1.W * calcPdf(v, r1.X, r1.Y) * r1.M);
-    update(s, r2.X, r2.Y, r2.W * calcPdf(v, r2.X, r2.Y) * r2.M);
+    update(s, r1.X, r1.Y, max(r1.W * calcPdf(v, r1.X, r1.Y) * r1.M, 0.0001f));
+    update(s, r2.X, r2.Y, max(r2.W * calcPdf(v, r2.X, r2.Y) * r2.M, 0.0001f));
 
     s.M = r1.M + r2.M;
-    s.W = s.Wsum / calcPdf(v, s.X, s.Y) / s.M;
+    s.W = max(s.Wsum / calcPdf(v, s.X, s.Y) / s.M, 0.0001f);
     return s;
 }
 
@@ -171,7 +171,7 @@ void main()
         float eps1 = nextRand(hitValue.seed);
         float eps2 = nextRand(hitValue.seed);
 
-        float w = calcPdf(v, eps1, eps2) / lgtPdf(lights.l[uint(eps1)]);
+        float w = calcPdf(v, eps1, eps2) / max(lgtPdf(lights.l[uint(eps1)]), 0.001f);
         update(r, eps1, eps2, w);
     }
     r.W = r.Wsum / calcPdf(v, r.X, r.Y) / r.M;
@@ -186,7 +186,7 @@ void main()
     float shadow = shadowRay(v.pos, shadowBias, -ldir, norm);
 
     if (shadow < 0.4f)
-        r.W = 0.0f;
+        r.W = 0.000f;
 
     // Temporal
     vec4 clipSpaceUV = motion.fwd * vec4(v.pos, 1.0f);
@@ -195,7 +195,7 @@ void main()
 
     if ((textureUV.x > 0.0f) && (textureUV.x < 1.0f) && (textureUV.y > 0.0f) && (textureUV.y < 1.0f)) {
         reservoir past = load(ivec2(textureUV * gl_LaunchSizeEXT.xy));
-        past.M = clamp(past.M, 0.0f, pow(r.M, 2));
+        past.M = clamp(past.M, 0.0f, pow(r.M, 3.0f));
         r = combine(v, r, past);
     }
 

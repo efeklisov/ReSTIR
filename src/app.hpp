@@ -4,6 +4,7 @@
 
 #include <vulkan/vulkan.hpp>
 #include <glm/glm.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
 #include <vk_mem_alloc.h>
 
@@ -14,6 +15,8 @@
 #include <chrono>
 #include <thread>
 #include <any>
+#include <random>
+#include <limits>
 
 #include <hdvw/window.hpp>
 #include <hdvw/instance.hpp>
@@ -58,41 +61,46 @@ struct params_t {
     uint32_t M = 4;
     bool accumulate;
     bool immediate = false;
+    bool multiply = false;
 };
 
 struct UniformData {
-    glm::mat4 viewInverse;
-    glm::mat4 projInverse;
-    uint32_t frameIndex;
-    uint32_t N;
+    alignas(64) glm::mat4 viewInverse;
+    alignas(64) glm::mat4 projInverse;
+    alignas(16) glm::uvec4 state;
+    alignas(4)  uint32_t frameIndex;
+    alignas(4)  uint32_t N;
 };
 
 struct UniMotion {
-    glm::mat4 forward;
+    alignas(64) glm::mat4 forward;
     /* glm::dmat4 forward; */
     /* glm::dmat4 inverse; */
     /* glm::mat4 view; */
 };
 
 struct UniSizes {
-    uint32_t meshesSize;
-    uint32_t lightsSize;
-    uint32_t M;
+    alignas(4) uint32_t meshesSize;
+    alignas(4) uint32_t lightsSize;
+    alignas(4) uint32_t M;
+    alignas(4) uint32_t C;
 };
 
 struct PushWindowSize {
-    uint32_t width;
-    uint32_t height;
+    alignas(4) uint32_t width;
+    alignas(4) uint32_t height;
+    alignas(4) uint32_t C;
 };
 
 struct UniCount {
-    uint32_t count;
+    alignas(4) uint32_t count;
 };
 
 struct UniFrames {
-    uint32_t lightsSize;
-    uint32_t frames;
-    glm::vec3 cameraPos;
+    alignas(16) glm::uvec4 state;
+    alignas(4)  uint32_t lightsSize;
+    alignas(4)  uint32_t frames;
+    alignas(16) glm::vec3 cameraPos;
 };
 
 class App {
@@ -125,7 +133,11 @@ class App {
             std::vector<vram_indices>  indices;
             std::vector<vram_texture>  diffuse;
             std::vector<vram_material> materials;
+
+            std::vector<vram_vertices> lightVertices;
+            std::vector<vram_indices> lightIndices;
             hd::DataBuffer<hd::VRAM_Light> lights;
+
             hd::DataBuffer<UniSizes> uniSizes;
 
             std::vector<hd::BLAS> blases;
@@ -192,16 +204,18 @@ class App {
             std::vector<vk::AccelerationStructureInstanceKHR> instances;
             instances.reserve(scene->meshes.size());
 
-            const std::array<std::array<float, 4>, 3> matrix {
-                1.0f, 0.0f, 0.0f, 0.0f,
-                0.0f, 1.0f, 0.0f, 0.0f,
-                0.0f, 0.0f, 1.0f, 0.0f,
-            };
+            vk::TransformMatrixKHR vkDefault_transform = []() {
+                glm::mat4 transform = glm::mat4(1.0f);
+                const float *ptransform = (const float*)glm::value_ptr(transform);
 
-            vk::TransformMatrixKHR vk_matrix(matrix);
+                vk::TransformMatrixKHR vkTransform;
+                memcpy(&vkTransform.matrix, ptransform, 3 * 4 * sizeof(float));
+
+                return vkTransform;
+            }();
 
             vk::AccelerationStructureInstanceKHR instanceInfo{};
-            instanceInfo.transform = vk_matrix;
+            instanceInfo.transform = vkDefault_transform;
             instanceInfo.mask = 0xFF;
             instanceInfo.instanceShaderBindingTableRecordOffset = 0; // HitGroupId
             instanceInfo.setFlags(vk::GeometryInstanceFlagBitsKHR::eTriangleFacingCullDisable);
@@ -213,8 +227,8 @@ class App {
                 vram.materials.push_back(fillVRAMBuffer(std::vector{scene->meshes[iter].material}, vk::BufferUsageFlagBits::eStorageBuffer));
 
                 vram.blases.push_back(hd::conjure({
-                        vram.vertices[iter],
-                        vram.indices[iter],
+                        vram.vertices.back(),
+                        vram.indices.back(),
                         graphicsPool,
                         graphicsQueue,
                         device,
@@ -229,16 +243,19 @@ class App {
             std::vector<hd::VRAM_Light> vram_lights;
             vram_lights.reserve(lights.size());
 
+            vram.lightVertices.reserve(lights.size());
+            vram.lightIndices.reserve(lights.size());
+
             for (uint32_t iter = 0; iter < lights.size(); iter++){
                 auto lightPad = hd::Model_t::generateLightPad(lights[iter]);
                 vram_lights.push_back(lightPad.props);
 
-                auto vram_vertices = fillVRAMBuffer(lightPad.vertices, vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eStorageBuffer);
-                auto vram_indices = fillVRAMBuffer(lightPad.indices, vk::BufferUsageFlagBits::eIndexBuffer | vk::BufferUsageFlagBits::eStorageBuffer);
+                vram.lightVertices.push_back(fillVRAMBuffer(lightPad.vertices, vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eStorageBuffer));
+                vram.lightIndices.push_back(fillVRAMBuffer(lightPad.indices, vk::BufferUsageFlagBits::eIndexBuffer | vk::BufferUsageFlagBits::eStorageBuffer));
 
                 vram.blases.push_back(hd::conjure({
-                        vram_vertices,
-                        vram_indices,
+                        vram.lightVertices.back(),
+                        vram.lightIndices.back(),
                         graphicsPool,
                         graphicsQueue,
                         device,
@@ -267,6 +284,10 @@ class App {
             uniSizes.meshesSize = scene->meshes.size();
             uniSizes.lightsSize = lights.size();
             uniSizes.M = params.M;
+            if (params.multiply)
+                uniSizes.C = 1;
+            else
+                uniSizes.C = 0;
 
             auto allocVRAMUniBuffer = [&]<class T>(hd::DataBuffer<T>& buffer, T const& dataStruct) {
                 buffer = hd::conjure<T>({
@@ -471,6 +492,23 @@ class App {
             }
 
             // BEGIN RAM
+            /* std::vector<hd::Model> sceneModels; */
+            /* sceneModels.reserve(2); */
+
+            /* for (auto& model : sceneModels) { */
+            /*     model = hd::conjure({ */
+            /*             "models/scene.obj", */
+            /*             [&](const char *filename){ */
+            /*                 return hd::conjure({ */
+            /*                         filename, */
+            /*                         graphicsPool, */
+            /*                         graphicsQueue, */
+            /*                         allocator, */
+            /*                         device, */
+            /*                         }); }, */
+            /*             }); */
+            /* } */
+
             auto scene = hd::conjure({
                     "models/scene.obj",
                     [&](const char *filename){
@@ -481,9 +519,10 @@ class App {
                                 allocator,
                                 device,
                                 }); },
+                    params.multiply,
                     });
-            
-            auto lights = hd::Model_t::parseLights("models/scene.json");
+
+            auto lights = hd::Model_t::parseLights("models/scene.json", params.multiply);
             // END RAM
 
             populateInitialVRAM(scene, lights);
@@ -761,6 +800,7 @@ class App {
             const struct PushWindowSize dims = {
                 vram.storage.frame.image->extent().width,
                 vram.storage.frame.image->extent().height,
+                uniSizes.C,
             };
 
             auto make = [&](auto const& image, vk::ImageLayout srcLayout, vk::ImageLayout dstLayout, 
@@ -829,6 +869,12 @@ class App {
                     vk::AccessFlagBits::eMemoryWrite,
                     vk::AccessFlagBits::eMemoryRead
                     )
+                /* make(vram.reservoir.past.image, */
+                /*     vk::ImageLayout::eGeneral, */
+                /*     vk::ImageLayout::eGeneral, */
+                /*     vk::AccessFlagBits::eMemoryRead, */
+                /*     vk::AccessFlagBits::eMemoryWrite */
+                /*     ) */
                 );
 
             buffer->raw().pushConstants(compPipeLayout->raw(), vk::ShaderStageFlagBits::eCompute, 0, sizeof(PushWindowSize), &dims);
@@ -1206,7 +1252,7 @@ class App {
             const float cameraRotateSpeed = 3.0 * deltaTime;
 
             static float rotateXAngle = 0.0f;
-            static float rotateYAngle = glm::half_pi<float>();
+            static float rotateYAngle = -glm::half_pi<float>();
             static float rotateZAngle = glm::pi<float>();
 
             static glm::vec3 cameraPos = glm::vec3(13.5f, -3.0f, 0.0f);
@@ -1217,15 +1263,27 @@ class App {
             const auto perspective = glm::perspective(glm::radians(60.0f), aspect, 0.1f, 512.0f); // Only fov and aspect matter
             const auto view = [&]() {
                 const auto translate = glm::translate(glm::mat4(1.0f), cameraPos);
-                const auto rotate = glm::mat4_cast(glm::quat(glm::vec3(rotateXAngle, rotateYAngle, rotateZAngle)));
+
+                const glm::quat qPitch = glm::angleAxis(rotateXAngle, glm::vec3(1, 0, 0));
+                const glm::quat qYaw = glm::angleAxis(rotateYAngle, glm::vec3(0, 1, 0));
+                const glm::quat qRoll = glm::angleAxis(rotateZAngle,glm::vec3(0, 0, 1));
+
+                glm::quat orientation = qPitch * qYaw * qRoll;
+                orientation = glm::normalize(orientation);
+                const glm::mat4 rotate = glm::mat4_cast(orientation);
 
                 return rotate * translate;
             }();
             static auto oldView = view;
 
+            static std::random_device rd;
+            static std::default_random_engine generator(rd());
+            static std::uniform_int_distribution<uint32_t> distribution(128, std::numeric_limits<uint32_t>::max() - swapChain->extent().width * swapChain->extent().height);
+
             const UniformData uniData {
                 .viewInverse = glm::inverse(view),
                 .projInverse = glm::inverse(perspective),
+                .state = glm::uvec4(distribution(generator), distribution(generator), distribution(generator), distribution(generator)),
                 .frameIndex = globalFrameCount,
                 .N = params.N,
             };
@@ -1247,20 +1305,28 @@ class App {
             if (glfwGetKey(window->raw(), GLFW_KEY_BACKSPACE) == GLFW_PRESS)
                 cameraPos += cameraUp * -cameraSpeed;
 
-            if (glfwGetKey(window->raw(), GLFW_KEY_Q) == GLFW_PRESS)
-                rotateYAngle += cameraRotateSpeed;
-            if (glfwGetKey(window->raw(), GLFW_KEY_E) == GLFW_PRESS)
+            if (glfwGetKey(window->raw(), GLFW_KEY_J) == GLFW_PRESS)
                 rotateYAngle += -cameraRotateSpeed;
+            if (glfwGetKey(window->raw(), GLFW_KEY_L) == GLFW_PRESS)
+                rotateYAngle += cameraRotateSpeed;
+            if (glfwGetKey(window->raw(), GLFW_KEY_I) == GLFW_PRESS)
+                rotateXAngle += cameraRotateSpeed;
+            if (glfwGetKey(window->raw(), GLFW_KEY_K) == GLFW_PRESS)
+                rotateXAngle += -cameraRotateSpeed;
+
 
             const UniCount uniCount{
                 .count = (globalFrameCount == params.frames) ? (params.frames - (params.tolerance + 1)) : 1,
             };
 
             const UniFrames uniFrames{
+                .state = uniData.state,
+                /* .state = glm::uvec4(distribution(generator), distribution(generator), distribution(generator), distribution(generator)), */
                 .lightsSize = uniSizes.lightsSize,
                 .frames = globalFrameCount,
                 .cameraPos = glm::vec3(uniData.viewInverse[3]),
             };
+            /* std::cout << uniFrames.cameraPos[0] << ' ' << uniFrames.cameraPos[1] << ' ' << uniFrames.cameraPos[2] << std::endl; */
 
             const UniMotion uniMotion{
                 .forward = glm::mat4(perspective) * glm::mat4(oldView),
