@@ -1083,18 +1083,76 @@ class App {
             copyRegion.setDstOffset({ 0, 0, 0 });
             copyRegion.setExtent({ source->extent().width, source->extent().height, 1 });
 
-            buffer->raw().copyImage(
-                    source->raw(), vk::ImageLayout::eTransferSrcOptimal, 
-                    ram.saveImage->raw(), vk::ImageLayout::eGeneral, 
-                    copyRegion
-                    );
+            if (params.accumulate) {
+                const vk::Offset3D offsetStart = { 0, 0, 0 };
+                const vk::Offset3D offsetEnd = {(int) swapChain->extent().width, (int) swapChain->extent().height, 1};
 
-            buffer->transitionImageLayout({
-                    source->raw(),
-                    vk::ImageLayout::eTransferSrcOptimal,
-                    vk::ImageLayout::eGeneral,
-                    sRange,
-                    });
+                vk::ImageBlit blitRegion{};
+                blitRegion.srcSubresource = { vk::ImageAspectFlagBits::eColor, 0, 0, 1 };
+                blitRegion.setSrcOffsets({offsetStart, offsetEnd});
+                blitRegion.dstSubresource = { vk::ImageAspectFlagBits::eColor, 0, 0, 1 };
+                blitRegion.setDstOffsets({offsetStart, offsetEnd});
+
+                buffer->transitionImageLayout({
+                        vram.storage.frame.image->raw(),
+                        vk::ImageLayout::eGeneral,
+                        vk::ImageLayout::eTransferDstOptimal,
+                        sRange,
+                        });
+
+                buffer->raw().blitImage(
+                        source->raw(), vk::ImageLayout::eTransferSrcOptimal,
+                        vram.storage.frame.image->raw(), vk::ImageLayout::eTransferDstOptimal, 
+                        blitRegion, vk::Filter::eNearest
+                        );
+
+                buffer->transitionImageLayout({
+                        vram.storage.frame.image->raw(),
+                        vk::ImageLayout::eTransferDstOptimal,
+                        vk::ImageLayout::eTransferSrcOptimal,
+                        sRange,
+                        });
+
+                buffer->raw().copyImage(
+                        vram.storage.frame.image->raw(), vk::ImageLayout::eTransferSrcOptimal, 
+                        ram.saveImage->raw(), vk::ImageLayout::eGeneral, 
+                        copyRegion
+                        );
+
+                buffer->transitionImageLayout({
+                        vram.storage.frame.image->raw(),
+                        vk::ImageLayout::eTransferSrcOptimal,
+                        vk::ImageLayout::eGeneral,
+                        sRange,
+                        });
+
+                buffer->transitionImageLayout({
+                        source->raw(),
+                        vk::ImageLayout::eTransferSrcOptimal,
+                        vk::ImageLayout::eGeneral,
+                        sRange,
+                        });
+            } else {
+                vk::ImageCopy copyRegion{};
+                copyRegion.srcSubresource = { vk::ImageAspectFlagBits::eColor, 0, 0, 1 };
+                copyRegion.setSrcOffset({ 0, 0, 0 });
+                copyRegion.dstSubresource = { vk::ImageAspectFlagBits::eColor, 0, 0, 1 };
+                copyRegion.setDstOffset({ 0, 0, 0 });
+                copyRegion.setExtent({ source->extent().width, source->extent().height, 1 });
+
+                buffer->raw().copyImage(
+                        source->raw(), vk::ImageLayout::eTransferSrcOptimal, 
+                        ram.saveImage->raw(), vk::ImageLayout::eGeneral, 
+                        copyRegion
+                        );
+
+                buffer->transitionImageLayout({
+                        source->raw(),
+                        vk::ImageLayout::eTransferSrcOptimal,
+                        vk::ImageLayout::eGeneral,
+                        sRange,
+                        });
+            }
 
             buffer->end();
         }
@@ -1146,8 +1204,8 @@ class App {
                         });
             };
 
-            allocWorkImage(vram.storage.frame, swapChain->format(), vk::ImageUsageFlagBits::eTransferSrc);
-            allocWorkImage(vram.storage.summ, swapChain->format(), vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst, true);
+            allocWorkImage(vram.storage.frame, swapChain->format(), vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst);
+            allocWorkImage(vram.storage.summ, vk::Format::eR32G32B32A32Sfloat, vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst, true);
             allocWorkImage(vram.reservoir.present, vk::Format::eR32G32B32A32Sfloat, vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst, true);
             allocWorkImage(vram.reservoir.vnorm, vk::Format::eR32G32B32A32Sfloat, vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst, true);
             allocWorkImage(vram.reservoir.vmat, vk::Format::eR32G32B32A32Sfloat, vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst, true);

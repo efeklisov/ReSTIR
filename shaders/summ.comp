@@ -6,7 +6,7 @@
 #define WORKGROUP_SIZE 16
 layout (local_size_x = WORKGROUP_SIZE, local_size_y = WORKGROUP_SIZE, local_size_z = 1 ) in;
 layout(binding = 0, set = 0, rgba8) uniform image2D image;
-layout(binding = 1, set = 0, rgba8) uniform image2D save;
+layout(binding = 1, set = 0, rgba32f) uniform image2D save;
 layout(binding = 2, set = 0) uniform UniCount 
 {
 	uint count;
