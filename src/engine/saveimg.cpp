@@ -7,7 +7,7 @@ namespace hd {
             method[delimPos] = '-';
 
         std::stringstream str;
-        str << "screenshot_" << method << '_' << tolerance << '-' << frame << '_' << N << ".ppm" << std::endl;
+        str << "screenshot_" << method << '_' << tolerance << '-' << frame << '_' << N << ".ppm";
 
         vk::ImageSubresource subResource{ vk::ImageAspectFlagBits::eColor, 0, 0 };
         vk::SubresourceLayout subResourceLayout = device->raw().getImageSubresourceLayout(img->raw(), subResource);

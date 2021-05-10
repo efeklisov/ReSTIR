@@ -142,7 +142,7 @@ void main()
         if (dot(rayDir, lights.l[lightNo].normal) > 0)
             hitValue.color = lights.l[lightNo].color * lights.l[lightNo].intensity;
         else
-            hitValue.color = vec3(0.1f, 0.1f, 0.1f);
+            hitValue.color = vec3(0.0f, 0.0f, 0.0f);
         return;
     }
 
@@ -183,10 +183,17 @@ void main()
 
     vec3  ldir = normalize(v.pos - lpos);
     float norm = length(v.pos - lpos);
-    float shadow = shadowRay(v.pos, shadowBias, -ldir, norm);
 
-    if (shadow < 0.4f)
+    float clc = dot(ldir, light.normal) / max(norm * norm, 0.001f);
+
+    if (clc < 0.0001f) {
         r.W = 0.000f;
+    } else {
+        float shadow = shadowRay(v.pos, shadowBias, -ldir, norm);
+
+        if (shadow < 0.4f)
+            r.W = 0.000f;
+    }
 
     // Temporal
     vec4 clipSpaceUV = motion.fwd * vec4(v.pos, 1.0f);
@@ -195,7 +202,7 @@ void main()
 
     if ((textureUV.x > 0.0f) && (textureUV.x < 1.0f) && (textureUV.y > 0.0f) && (textureUV.y < 1.0f)) {
         reservoir past = load(ivec2(textureUV * gl_LaunchSizeEXT.xy));
-        past.M = clamp(past.M, 0.0f, pow(r.M, 3.0f));
+        past.M = clamp(past.M, 0.0f, pow(r.M, 2.0f));
         r = combine(v, r, past);
     }
 

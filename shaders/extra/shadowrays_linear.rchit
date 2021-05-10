@@ -91,7 +91,7 @@ void main()
         if (dot(rayDir, lights.l[lightNo].normal) > 0)
             hitValue.color = lights.l[lightNo].color * lights.l[lightNo].intensity;
         else
-            hitValue.color = vec3(0.1f, 0.1f, 0.1f);
+            hitValue.color = vec3(0.0f, 0.0f, 0.0f);
         return;
     }
 
@@ -117,22 +117,45 @@ void main()
     Material mat = materials[nonuniformEXT(gl_InstanceCustomIndexEXT)].m;
 
     // Light
-    float Lsum = 0.0f;
-    float L[MAX_LIGHTS];
-    for (uint i = 0; i < sizes.lightsSize; i++) {
-        L[i] = lgtPdf(lights.l[i]);
-        Lsum += L[i];
-    }
-
-    float eps = nextRand(hitValue.seed) * Lsum;
+    float eps;
+    float L_idx;
     uint idx;
-    for (idx = 0; idx < sizes.lightsSize; idx++) {
-        eps -= L[idx];
+    if (sizes.C != 1) {
+        float Lsum = 0.0f;
+        float L[MAX_LIGHTS];
+        for (uint i = 0; i < sizes.lightsSize; i++) {
+            L[i] = lgtPdf(lights.l[i]);
+            Lsum += L[i];
+        }
 
-        if (eps <= 0.0f)
-            break;
+        eps = nextRand(hitValue.seed) * Lsum;
+        for (idx = 0; idx < sizes.lightsSize; idx++) {
+            eps -= L[idx];
+
+            if (eps <= 0.0f) {
+                L_idx = L[idx];
+                break;
+            }
+        }
+    } else {
+        float Lsum = 0.0f;
+        for (uint i = 0; i < sizes.lightsSize; i++) {
+            Lsum += lgtPdf(lights.l[i]);
+        }
+
+        eps = nextRand(hitValue.seed) * Lsum;
+        for (idx = 0; idx < sizes.lightsSize; idx++) {
+            float pdf = lgtPdf(lights.l[idx]);
+            eps -= pdf;
+
+            if (eps <= 0.0f) {
+                L_idx = pdf;
+                break;
+            }
+        }
     }
-    float reusedEps = eps / L[idx] + 1.0f;
+
+    float reusedEps = eps / L_idx + 1.0f;
 
     Light light = lights.l[idx];
     vec3 lpos = lightSample(light, reusedEps);
@@ -141,11 +164,11 @@ void main()
     float norm = length(v.pos - lpos);
     float shadow = shadowRay(v.pos, shadowBias, -ldir, norm);
     
-    float C = (sizes.C == 1) ? 100.0f : 1.0f;
+    float C = (sizes.C == 1) ? 100.0f : 1.5f;
     float L_e = light.intensity;
     vec3 BRDF = texColor / pi; // Lambert
 
-    vec3 explicitColor = C * shadow * BRDF * L_e * dot(-ldir, v.normal) * dot(ldir, light.normal) / (L[idx] * norm * norm);
+    vec3 explicitColor = C * shadow * BRDF * L_e * dot(-ldir, v.normal) * dot(ldir, light.normal) / (L_idx * norm * norm);
 
     // Cast new ray
     // vec3 newRayD = RandomCosineVectorOf(hitValue.seed, v);

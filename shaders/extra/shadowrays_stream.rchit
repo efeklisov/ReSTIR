@@ -156,7 +156,7 @@ void main()
     float norm = length(v.pos - lpos);
     float shadow = shadowRay(v.pos, shadowBias, -ldir, norm);
     
-    float C = (sizes.C == 1) ? 75.0f : 1.0f;
+    float C = (sizes.C == 1) ? 100.0f : 1.0f;
     float L_e = light.intensity;
     vec3 BRDF = texColor / pi; // Lambert
 

@@ -89,7 +89,7 @@ void main()
         if (dot(rayDir, lights.l[lightNo].normal) > 0)
             hitValue.color = lights.l[lightNo].color * lights.l[lightNo].intensity;
         else
-            hitValue.color = vec3(0.1f, 0.1f, 0.1f);
+            hitValue.color = vec3(0.0f, 0.0f, 0.0f);
         return;
     }
 
@@ -125,7 +125,7 @@ void main()
     float norm = length(v.pos - lpos);
     float shadow = shadowRay(v.pos, shadowBias, -ldir, norm);
     
-    float C = (sizes.C == 1) ? 100.0f : 2.0f;
+    float C = (sizes.C == 1) ? 100.0f : 3.0f;
     float L_e = light.intensity;
     vec3 BRDF = texColor / pi; // Lambert
 

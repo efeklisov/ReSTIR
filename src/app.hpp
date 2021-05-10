@@ -868,13 +868,13 @@ class App {
                     vk::ImageLayout::eGeneral,
                     vk::AccessFlagBits::eMemoryWrite,
                     vk::AccessFlagBits::eMemoryRead
+                    ),
+                make(vram.reservoir.past.image,
+                    vk::ImageLayout::eGeneral,
+                    vk::ImageLayout::eGeneral,
+                    vk::AccessFlagBits::eMemoryRead,
+                    vk::AccessFlagBits::eMemoryWrite
                     )
-                /* make(vram.reservoir.past.image, */
-                /*     vk::ImageLayout::eGeneral, */
-                /*     vk::ImageLayout::eGeneral, */
-                /*     vk::AccessFlagBits::eMemoryRead, */
-                /*     vk::AccessFlagBits::eMemoryWrite */
-                /*     ) */
                 );
 
             buffer->raw().pushConstants(compPipeLayout->raw(), vk::ShaderStageFlagBits::eCompute, 0, sizeof(PushWindowSize), &dims);
@@ -1309,11 +1309,26 @@ class App {
             const float cameraSpeed = 8.0 * deltaTime;
             const float cameraRotateSpeed = 3.0 * deltaTime;
 
-            static float rotateXAngle = 0.0f;
-            static float rotateYAngle = -glm::half_pi<float>();
-            static float rotateZAngle = glm::pi<float>();
+            static glm::vec3 cameraPos;
+            static float rotateXAngle, rotateYAngle, rotateZAngle;
 
-            static glm::vec3 cameraPos = glm::vec3(13.5f, -3.0f, 0.0f);
+            static bool static_if = true;
+            if (static_if && params.multiply) {
+                rotateXAngle = -0.600783;
+                rotateYAngle = -0.918895;
+                rotateZAngle = 3.14159;
+
+                cameraPos = glm::vec3(6.53084, -38.4348, 10.4982);
+                static_if = false;
+            } else if (static_if) {
+                rotateXAngle = 0.0f;
+                rotateYAngle = -glm::half_pi<float>();
+                rotateZAngle = glm::pi<float>();
+
+                cameraPos = glm::vec3(13.5f, -3.0f, 0.0f);
+                static_if = false;
+            }
+
             static glm::vec3 cameraForward = glm::vec3(0.0f, 0.0f, 1.0f);
             static glm::vec3 cameraRight = glm::vec3(1.0f, 0.0f, 0.0f);
             static glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
@@ -1374,7 +1389,7 @@ class App {
 
 
             const UniCount uniCount{
-                .count = (globalFrameCount == params.frames) ? (params.frames - (params.tolerance + 1)) : 1,
+                .count = (globalFrameCount == params.frames) ? (params.frames - (params.tolerance)) : 1,
             };
 
             const UniFrames uniFrames{
@@ -1405,6 +1420,9 @@ class App {
             fillUniBuffer(vram.uniCount,  uniCount);
             fillUniBuffer(vram.uniFrames, uniFrames);
             fillUniBuffer(vram.uniMotion, uniMotion);
+
+            /* std::cout << cameraPos.x << ' ' << cameraPos.y << ' ' << cameraPos.z << std::endl; */
+            /* std::cout << rotateXAngle << ' ' << rotateYAngle << ' ' << rotateZAngle << std::endl; */
         }
 
         uint32_t currentFrame = 0;

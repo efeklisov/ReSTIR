@@ -5,7 +5,11 @@
 #extension GL_GOOGLE_include_directive : enable
 
 #define WORKGROUP_SIZE 16
-float pi = 3.14159265f;
+
+#define SPATIAL_ITERS 1
+#define SPATIAL_NEIGHBORS 5
+
+const float pi = 3.14159265f;
 
 #include "includes.glsl"
 
@@ -71,16 +75,17 @@ float nextRand(inout uvec4 state)
 /*   return float(seed & 0x00FFFFFF) / float(0x01000000); */
 /* } */
 
-#define SPATIAL_ITERS 2
-#define SPATIAL_NEIGHBORS 5
+reservoir load(ivec2 UV) {
+    /* if (UV.x < 0 || UV.y < 0 || UV.x >= params.width || UV.y >= params.height) { */
+    /*     return reservoir(0.0, 0.0, 0.0, 0.0, 0.0); */
+    /* } */
 
-reservoir load(vec2 UV) {
     vec4 data = imageLoad(present, ivec2(UV));
     reservoir r = { data.x, data.y, data.w, data.z, 0.0f };
     return r;
 }
 
-void save(vec2 UV, reservoir r) {
+void save(ivec2 UV, reservoir r) {
     vec4 data = clamp(vec4(r.X, r.Y, r.M, r.W), 0.0f, 1.0f);
     data.z = r.M;
     imageStore(past, ivec2(UV), data);
@@ -169,17 +174,23 @@ void main()
     for (uint j = 0; j < SPATIAL_ITERS; j++) {
         uint i = 0;
         while (i < SPATIAL_NEIGHBORS) {
-            uint x = absPos.x + uint(nextRand(seed) * 29) - 15;
-            if (x >= absPos.x)
-                x++;
-            uint y = absPos.y + uint(nextRand(seed) * 29) - 15;
-            if (y >= absPos.y)
-                y++;
+            float angle = nextRand(seed) * 2.0f * pi;
+            float radius = sqrt(nextRand(seed)) * 30.0f;
 
-            Q[i] = load(vec2(x, y));
+            int x = clamp(absPos.x + int(floor(cos(angle) * radius)), 0, int(params.width) - 1);
+            int y = clamp(absPos.y + int(floor(sin(angle) * radius)), 0, int(params.height) - 1);
+
+            /* uint x = clamp(absPos.x + uint(nextRand(seed) * 29) - 15, 0, params.width - 2); */
+            /* if (x >= absPos.x) */
+            /*     x++; */
+            /* uint y = clamp(absPos.y + uint(nextRand(seed) * 29) - 15, 0, params.height - 2); */
+            /* if (y >= absPos.y) */
+            /*     y++; */
+
+            Q[i] = load(ivec2(x, y));
             i++;
 
-            /* if (Q[i].M < 0.01f) { */
+            /* if (Q[i].M < -0.01f) { */
             /*     Q[i - 1] = erase; */
             /*     continue; */
             /* } */
@@ -209,7 +220,7 @@ void main()
     vec3 ldir = normalize(vpos - lpos);
     float norm = length(vpos - lpos);
     
-    float C = (params.C == 1) ? 120.0f : 1.0f;
+    float C = (params.C == 1) ? 100.0f : 1.0f;
     /* float C = (params.C == 1) ? 50.0f : 1.0f; */
     float L_e = light.intensity;
     vec3 BRDF = vmat / pi; // Lambert
